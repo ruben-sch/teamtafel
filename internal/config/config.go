@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 // Config enthält alle Einstellungen der Anwendung.
@@ -15,6 +16,8 @@ type Config struct {
 	// MigrateDatabaseURL verbindet mit der Owner-Rolle für Migrationen.
 	// Leer bedeutet: DatabaseURL wird auch für Migrationen verwendet.
 	MigrateDatabaseURL string
+	// BaseHost ist die Hauptdomain; Vereine liegen auf <slug>.<BaseHost>.
+	BaseHost string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -25,6 +28,7 @@ func FromEnv(version string) (Config, error) {
 		ListenAddr:         getenv("LISTEN_ADDR", ":8080"),
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		MigrateDatabaseURL: os.Getenv("MIGRATE_DATABASE_URL"),
+		BaseHost:           strings.ToLower(getenv("APP_HOST", "localhost")),
 		Version:            version,
 	}
 	if c.DatabaseURL == "" {

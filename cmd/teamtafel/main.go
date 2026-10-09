@@ -14,6 +14,7 @@ import (
 
 	"github.com/ruben-sch/teamtafel/internal/config"
 	"github.com/ruben-sch/teamtafel/internal/db"
+	"github.com/ruben-sch/teamtafel/internal/verein"
 	"github.com/ruben-sch/teamtafel/internal/web"
 )
 
@@ -23,8 +24,17 @@ var version = "dev"
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		os.Exit(healthcheck())
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "healthcheck":
+			os.Exit(healthcheck())
+		case "verein-anlegen", "mannschaft-anlegen":
+			if err := admin(os.Args[1], os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "fehler:", err)
+				os.Exit(1)
+			}
+			return
+		}
 	}
 	if err := run(); err != nil {
 		slog.Error("abbruch", "err", err)
@@ -51,8 +61,13 @@ func run() error {
 	defer pool.Close()
 
 	srv := &http.Server{
-		Addr:              cfg.ListenAddr,
-		Handler:           web.NewHandler(pool, cfg.Version),
+		Addr: cfg.ListenAddr,
+		Handler: web.NewHandler(web.Options{
+			DB:       pool,
+			Vereine:  verein.NewStore(pool),
+			BaseHost: cfg.BaseHost,
+			Version:  cfg.Version,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
