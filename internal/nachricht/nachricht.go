@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ruben-sch/teamtafel/internal/job"
+	"github.com/ruben-sch/teamtafel/internal/push"
 )
 
 // Art ist die Job-Art einer Benachrichtigung.
@@ -30,6 +31,8 @@ type Inhalt struct {
 	Text    string `json:"text"`
 	// Pfad auf der Vereins-Subdomain, z. B. /t/{id}.
 	Pfad string `json:"pfad"`
+	// Dringend geht per Push und zusätzlich per E-Mail (Terminabsage).
+	Dringend bool `json:"dringend,omitempty"`
 }
 
 type payload struct {
@@ -96,19 +99,39 @@ type Mailer interface {
 	Senden(ctx context.Context, an, betreff, text string) error
 }
 
-// Zustellung stellt Benachrichtigungen zu, vorerst per E-Mail.
+// Abos liefert und entfernt die Push-Abos eines Kontos.
+type Abos interface {
+	Abos(ctx context.Context, kontoID string) ([]push.Abo, error)
+	Entfernen(ctx context.Context, endpoint string) error
+}
+
+// Pusher stellt eine Push-Nachricht an ein Abo zu.
+type Pusher interface {
+	Senden(ctx context.Context, a push.Abo, data []byte) error
+}
+
+// Zustellung stellt Benachrichtigungen zu: per Web Push an alle Geräte des Kontos,
+// sonst (kein Abo, alle fehlgeschlagen oder Dringend) per E-Mail.
 type Zustellung struct {
 	pool   *pgxpool.Pool
 	mailer Mailer
+	abos   Abos
+	pusher Pusher
 	// Scheme und BaseHost bilden den Link: <Scheme>://<slug>.<BaseHost><Pfad>.
 	Scheme, BaseHost string
 	// Erlaubt beschränkt den Versand auf diese Adressen (Staging); leer heißt alle.
 	Erlaubt []string
 }
 
-// NewZustellung erzeugt eine Zustellung.
+// NewZustellung erzeugt eine Zustellung nur per E-Mail.
 func NewZustellung(pool *pgxpool.Pool, m Mailer, scheme, baseHost string, erlaubt []string) *Zustellung {
 	return &Zustellung{pool: pool, mailer: m, Scheme: scheme, BaseHost: baseHost, Erlaubt: erlaubt}
+}
+
+// MitPush schaltet Web Push zu.
+func (z *Zustellung) MitPush(a Abos, p Pusher) *Zustellung {
+	z.abos, z.pusher = a, p
+	return z
 }
 
 // Zustellen ist der Job-Handler für Art.
@@ -129,7 +152,43 @@ func (z *Zustellung) Zustellen(ctx context.Context, raw []byte) error {
 		slog.Info("benachrichtigung unterdrückt, adresse nicht freigegeben", "konto", p.KontoID)
 		return nil
 	}
-	text := p.Text + "\n\n" + z.Scheme + "://" + p.Verein + "." + z.BaseHost + p.Pfad +
+	link := z.Scheme + "://" + p.Verein + "." + z.BaseHost + p.Pfad
+	if z.pushen(ctx, p, link) && !p.Dringend {
+		return nil
+	}
+	text := p.Text + "\n\n" + link +
 		"\n\n-- \nDu bekommst diese E-Mail, weil du in Teamtafel zu einer Mannschaft gehörst.\n"
 	return z.mailer.Senden(ctx, email, p.Betreff, text)
+}
+
+// pushen schickt an alle Geräte des Kontos und meldet, ob mindestens eins erreicht wurde.
+// Abgelaufene Abos werden gelöscht; andere Fehler führen zum Rückfall auf E-Mail.
+func (z *Zustellung) pushen(ctx context.Context, p payload, link string) bool {
+	if z.pusher == nil {
+		return false
+	}
+	abos, err := z.abos.Abos(ctx, p.KontoID)
+	if err != nil {
+		slog.Warn("push-abos laden", "konto", p.KontoID, "err", err)
+		return false
+	}
+	data, _ := json.Marshal(struct {
+		Titel string `json:"titel"`
+		Text  string `json:"text"`
+		URL   string `json:"url"`
+	}{p.Betreff, p.Text, link})
+	erreicht := false
+	for _, a := range abos {
+		switch err := z.pusher.Senden(ctx, a, data); {
+		case err == nil:
+			erreicht = true
+		case errors.Is(err, push.ErrAbgelaufen):
+			if err := z.abos.Entfernen(ctx, a.Endpoint); err != nil {
+				slog.Warn("push-abo entfernen", "err", err)
+			}
+		default:
+			slog.Warn("push fehlgeschlagen", "konto", p.KontoID, "err", err)
+		}
+	}
+	return erreicht
 }
