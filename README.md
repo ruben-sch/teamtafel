@@ -42,6 +42,8 @@ Die Wartung in der App setzt sie stündlich um:
 - Absagegründe werden 90 Tage nach Terminbeginn gelöscht, die Absage selbst bleibt.
 - Abgelaufene Login-Links und Sessions werden gelöscht, erledigte Benachrichtigungs-Jobs nach 30 Tagen.
 - Abgelehnte Beitrittsanfragen werden sofort gelöscht.
+- Spieler, die seit 6 Monaten in keinem Kader einer laufenden Saison stehen, werden mit Rückmeldungen und Vertretungen gelöscht, freigegebene Anfragen abgelaufener Saisons ebenso.
+- Konten, die in keinem Verein mehr Trainer, Admin, Spieler oder Vertretung sind, werden nach 30 Tagen gelöscht. 7 Tage vorher geht ein Hinweis per Mail; ohne verschickten Hinweis (etwa auf Staging außerhalb von `MAIL_ALLOWLIST`) wird nicht gelöscht. Super-Admins sind ausgenommen.
 - Logs und gespeicherte Fehlermeldungen enthalten nur IDs, keine E-Mail-Adressen oder Namen.
 
 Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.

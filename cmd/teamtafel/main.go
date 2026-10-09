@@ -80,8 +80,9 @@ func run() error {
 	worker := job.NewWorker(pool)
 	worker.Registrieren(nachricht.Art, zustellung.Zustellen)
 	go worker.Laufen(ctx, 10*time.Second)
-	authStore := auth.NewStore(pool)
-	go wartung(ctx, vereine, termine, authStore, worker)
+	authStore, teams := auth.NewStore(pool), team.NewStore(pool)
+	go (&wartung{vereine: vereine, termine: termine, teams: teams, logins: authStore, worker: worker,
+		konten: auth.KontoFrist{Geschuetzt: cfg.Superadmins, Mailer: mailer, Erlaubt: cfg.MailAllowlist}}).laufen(ctx)
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
@@ -89,7 +90,7 @@ func run() error {
 			DB:             pool,
 			Vereine:        vereine,
 			Auth:           authStore,
-			Team:           team.NewStore(pool),
+			Team:           teams,
 			Termine:        termine,
 			Mailer:         mailer,
 			Superadmins:    cfg.Superadmins,
@@ -153,34 +154,30 @@ func healthcheck() int {
 }
 
 // wartung erinnert alle fünf Minuten an offene Rückmeldungen. Stündlich hält sie die
-// Serientermine acht Wochen im Voraus vor und setzt die Löschfristen um (Absagegründe,
-// abgelaufene Logins, erledigte Jobs). Mehrere Instanzen stören sich nicht: alles ist
-// idempotent, Erinnern markiert jeden Termin in derselben Transaktion.
-func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, logins *auth.Store, worker *job.Worker) {
+// Serientermine acht Wochen im Voraus vor und setzt die Löschfristen um. Mehrere Instanzen
+// stören sich nicht: alles ist idempotent, Erinnern markiert jeden Termin in derselben
+// Transaktion, der Löschhinweis sperrt das Konto beim Versand.
+type wartung struct {
+	vereine *verein.Store
+	termine *termin.Store
+	teams   *team.Store
+	logins  *auth.Store
+	worker  *job.Worker
+	konten  auth.KontoFrist
+}
+
+func (w *wartung) laufen(ctx context.Context) {
 	for runde := 0; ; runde++ {
-		vs, err := vereine.Alle(ctx)
+		vs, err := w.vereine.Alle(ctx)
 		if err != nil {
 			slog.Error("wartung: vereine laden", "err", err)
 		}
-		for _, v := range vs {
-			if runde%12 == 0 {
-				if err := termine.Fortschreiben(ctx, v.ID); err != nil {
-					slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
-				}
-				if err := termine.GruendeLoeschen(ctx, v.ID); err != nil {
-					slog.Error("absagegründe löschen", "verein", v.Slug, "err", err)
-				}
-			}
-			if err := termine.Erinnern(ctx, v.ID); err != nil {
-				slog.Error("erinnern", "verein", v.Slug, "err", err)
-			}
-		}
 		if runde%12 == 0 {
-			if err := worker.Aufraeumen(ctx, 30*24*time.Hour); err != nil {
-				slog.Error("jobs aufräumen", "err", err)
-			}
-			if err := logins.Aufraeumen(ctx); err != nil {
-				slog.Error("logins aufräumen", "err", err)
+			w.stuendlich(ctx, vs, err == nil)
+		}
+		for _, v := range vs {
+			if err := w.termine.Erinnern(ctx, v.ID); err != nil {
+				slog.Error("erinnern", "verein", v.Slug, "err", err)
 			}
 		}
 		select {
@@ -188,5 +185,38 @@ func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, 
 			return
 		case <-time.After(5 * time.Minute):
 		}
+	}
+}
+
+// stuendlich schreibt Serien fort und setzt die Löschfristen um. Konten werden nur
+// aufgeräumt, wenn die Verknüpfungen aller Vereine geladen werden konnten.
+func (w *wartung) stuendlich(ctx context.Context, vs []verein.Verein, vollstaendig bool) {
+	konten := w.konten
+	konten.Verknuepft, konten.Vollstaendig = nil, vollstaendig
+	for _, v := range vs {
+		if err := w.termine.Fortschreiben(ctx, v.ID); err != nil {
+			slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
+		}
+		if err := w.termine.GruendeLoeschen(ctx, v.ID); err != nil {
+			slog.Error("absagegründe löschen", "verein", v.Slug, "err", err)
+		}
+		if err := w.teams.SpielerOhneKaderLoeschen(ctx, v.ID, time.Now()); err != nil {
+			slog.Error("spieler löschen", "verein", v.Slug, "err", err)
+		}
+		ids, err := w.teams.VerknuepfteKonten(ctx, v.ID)
+		if err != nil {
+			slog.Error("verknüpfte konten", "verein", v.Slug, "err", err)
+			konten.Vollstaendig = false
+		}
+		konten.Verknuepft = append(konten.Verknuepft, ids...)
+	}
+	if err := w.logins.KontenAufraeumen(ctx, konten); err != nil {
+		slog.Error("konten aufräumen", "err", err)
+	}
+	if err := w.worker.Aufraeumen(ctx, 30*24*time.Hour); err != nil {
+		slog.Error("jobs aufräumen", "err", err)
+	}
+	if err := w.logins.Aufraeumen(ctx); err != nil {
+		slog.Error("logins aufräumen", "err", err)
 	}
 }
