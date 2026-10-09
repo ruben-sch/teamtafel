@@ -9,8 +9,8 @@ name: Deploy
 # Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
 #   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt;
 #   MAIL_ALLOWLIST (Staging), nur diese Adressen bekommen Benachrichtigungen; leer heißt alle
-#   BETREIBER_NAME, BETREIBER_ANSCHRIFT, BETREIBER_EMAIL für Impressum und Datenschutzerklärung
-#   (ohne einfache Anführungszeichen), z. B. "Erika Muster", "Hauptstr. 1, 75391 Gechingen"
+#   BETREIBER_NAME, BETREIBER_ANSCHRIFT, BETREIBER_EMAIL überschreiben die Impressumsangaben aus dem Code
+#   (ohne einfache Anführungszeichen)
 on:
   push:
     branches: [main]
