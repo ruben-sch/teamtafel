@@ -15,7 +15,9 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/config"
 	"github.com/ruben-sch/teamtafel/internal/db"
+	"github.com/ruben-sch/teamtafel/internal/job"
 	"github.com/ruben-sch/teamtafel/internal/mail"
+	"github.com/ruben-sch/teamtafel/internal/nachricht"
 	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
@@ -59,21 +61,26 @@ func run() error {
 	defer pool.Close()
 
 	vereine, termine := verein.NewStore(pool), termin.NewStore(pool)
-	go serienFortschreiben(ctx, vereine, termine)
+	mailer := mail.NewSMTP(mail.Config{
+		Host: cfg.SMTPHost, Port: cfg.SMTPPort,
+		User: cfg.SMTPUser, Password: cfg.SMTPPassword,
+		From: cfg.MailFrom,
+	})
+	worker := job.NewWorker(pool)
+	worker.Registrieren(nachricht.Art,
+		nachricht.NewZustellung(pool, mailer, cfg.Scheme, cfg.BaseHost, cfg.MailAllowlist).Zustellen)
+	go worker.Laufen(ctx, 10*time.Second)
+	go wartung(ctx, vereine, termine, worker)
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: web.NewHandler(web.Options{
-			DB:      pool,
-			Vereine: vereine,
-			Auth:    auth.NewStore(pool),
-			Team:    team.NewStore(pool),
-			Termine: termine,
-			Mailer: mail.NewSMTP(mail.Config{
-				Host: cfg.SMTPHost, Port: cfg.SMTPPort,
-				User: cfg.SMTPUser, Password: cfg.SMTPPassword,
-				From: cfg.MailFrom,
-			}),
+			DB:          pool,
+			Vereine:     vereine,
+			Auth:        auth.NewStore(pool),
+			Team:        team.NewStore(pool),
+			Termine:     termine,
+			Mailer:      mailer,
 			Superadmins: cfg.Superadmins,
 			Scheme:      cfg.Scheme,
 			BaseHost:    cfg.BaseHost,
@@ -123,23 +130,34 @@ func healthcheck() int {
 	return 0
 }
 
-// serienFortschreiben hält die Termine aller Serien stündlich acht Wochen im Voraus vor.
-// Mehrere Instanzen stören sich nicht, weil das Erzeugen idempotent ist.
-func serienFortschreiben(ctx context.Context, vereine *verein.Store, termine *termin.Store) {
-	for {
+// wartung erinnert alle fünf Minuten an offene Rückmeldungen und hält stündlich die
+// Serientermine acht Wochen im Voraus vor. Mehrere Instanzen stören sich nicht:
+// Fortschreiben ist idempotent, Erinnern markiert jeden Termin in derselben Transaktion.
+func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, worker *job.Worker) {
+	for runde := 0; ; runde++ {
 		vs, err := vereine.Alle(ctx)
 		if err != nil {
-			slog.Error("serien fortschreiben: vereine laden", "err", err)
+			slog.Error("wartung: vereine laden", "err", err)
 		}
 		for _, v := range vs {
-			if err := termine.Fortschreiben(ctx, v.ID); err != nil {
-				slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
+			if runde%12 == 0 {
+				if err := termine.Fortschreiben(ctx, v.ID); err != nil {
+					slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
+				}
+			}
+			if err := termine.Erinnern(ctx, v.ID); err != nil {
+				slog.Error("erinnern", "verein", v.Slug, "err", err)
+			}
+		}
+		if runde%12 == 0 {
+			if err := worker.Aufraeumen(ctx, 30*24*time.Hour); err != nil {
+				slog.Error("jobs aufräumen", "err", err)
 			}
 		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(time.Hour):
+		case <-time.After(5 * time.Minute):
 		}
 	}
 }

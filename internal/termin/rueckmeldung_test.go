@@ -125,7 +125,7 @@ func TestWerDarfRueckmelden(t *testing.T) {
 func TestFristUndAbsage(t *testing.T) {
 	k := mitKader(t)
 	frist := k.jetzt.Add(-time.Hour)
-	tm, err := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, termin.Daten{
+	tm, err := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, "", termin.Daten{
 		Typ: termin.TypTraining, Beginn: k.jetzt.Add(5 * time.Hour), Ende: k.jetzt.Add(6 * time.Hour), Frist: &frist,
 	})
 	if err != nil {
@@ -139,14 +139,14 @@ func TestFristUndAbsage(t *testing.T) {
 	}
 
 	// Ohne Frist endet die Rückmeldung mit dem Beginn.
-	vorbei, _ := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, termin.Daten{
+	vorbei, _ := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, "", termin.Daten{
 		Typ: termin.TypTraining, Beginn: k.jetzt.Add(-time.Hour), Ende: k.jetzt.Add(time.Hour),
 	})
 	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, vorbei.ID, k.kind, k.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrFristVorbei) {
 		t.Fatalf("eltern nach beginn: %v", err)
 	}
 
-	if err := k.store.Absagen(k.ctx, k.verein.ID, tm.ID); err != nil {
+	if err := k.store.Absagen(k.ctx, k.verein.ID, tm.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, k.kind, k.trainer.ID, termin.Zu, "", true); !errors.Is(err, termin.ErrAbgesagt) {

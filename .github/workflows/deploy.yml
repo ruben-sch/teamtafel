@@ -6,7 +6,8 @@ name: Deploy
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
 #   SMTP_PASSWORD (Resend-API-Key; optional, ohne ihn gehen keine Mails raus)
 # Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
-#   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt
+#   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt;
+#   MAIL_ALLOWLIST (Staging), nur diese Adressen bekommen Benachrichtigungen; leer heißt alle
 on:
   push:
     branches: [main]
@@ -95,6 +96,7 @@ jobs:
           APP_HOST: ${{ secrets.APP_HOST }}
           VEREIN_SLUGS: ${{ vars.VEREIN_SLUGS }}
           SUPERADMIN_EMAILS: ${{ vars.SUPERADMIN_EMAILS }}
+          MAIL_ALLOWLIST: ${{ vars.MAIL_ALLOWLIST }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
@@ -104,7 +106,7 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,MAIL_ALLOWLIST,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -132,6 +134,7 @@ jobs:
             APP_DB_PASSWORD=$APP_DB_PASSWORD
             SMTP_PASSWORD=$SMTP_PASSWORD
             SUPERADMIN_EMAILS='$SUPERADMIN_EMAILS'
+            MAIL_ALLOWLIST='$MAIL_ALLOWLIST'
             EOF
 
             docker network inspect proxy >/dev/null 2>&1 || docker network create proxy

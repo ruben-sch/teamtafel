@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/ruben-sch/teamtafel/internal/nachricht"
 )
 
 // Status einer Rückmeldung; leer heißt offen.
@@ -57,11 +59,16 @@ func (s *Store) Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, 
 	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		var abgesagt, imKader, berechtigt bool
 		var ende time.Time
+		var d Daten
+		var mannschaftID, vorname, alt string
 		err := tx.QueryRow(ctx, `
-SELECT t.abgesagt, coalesce(t.frist, t.beginn),
+SELECT t.abgesagt, coalesce(t.frist, t.beginn), t.mannschaft_id::text, t.typ, t.titel, t.beginn,
 	EXISTS (SELECT 1 FROM kader k WHERE k.mannschaft_id = t.mannschaft_id AND k.spieler_id = $2),
-	EXISTS (SELECT 1 FROM spieler sp WHERE sp.id = $2 AND `+platzhalter(darfAntworten, "$3", "$4")+`)
-FROM termin t WHERE t.id = $1`, terminID, spielerID, kontoID, jetzt.Year()).Scan(&abgesagt, &ende, &imKader, &berechtigt)
+	EXISTS (SELECT 1 FROM spieler sp WHERE sp.id = $2 AND `+platzhalter(darfAntworten, "$3", "$4")+`),
+	coalesce((SELECT vorname FROM spieler WHERE id = $2), ''),
+	coalesce((SELECT status FROM rueckmeldung r WHERE r.termin_id = t.id AND r.spieler_id = $2), '')
+FROM termin t WHERE t.id = $1`, terminID, spielerID, kontoID, jetzt.Year()).
+			Scan(&abgesagt, &ende, &mannschaftID, &d.Typ, &d.Titel, &d.Beginn, &imKader, &berechtigt, &vorname, &alt)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			return ErrNotFound
@@ -84,8 +91,40 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (termin_id, spieler_id) DO UPDATE
 SET status = EXCLUDED.status, grund = EXCLUDED.grund, von_konto_id = EXCLUDED.von_konto_id, geaendert_am = EXCLUDED.geaendert_am`,
 			vereinID, terminID, spielerID, status, g, kontoID, jetzt)
-		return err
+		if err != nil || status == alt {
+			return err
+		}
+		return s.rueckmeldungMelden(ctx, tx, vereinID, mannschaftID, terminID, spielerID, kontoID, vorname, status, d,
+			!jetzt.Before(ende))
 	})
+}
+
+// rueckmeldungMelden informiert die anderen Konten des Spielers und bei einer Absage nach der Frist die Trainer.
+// Der Grund bleibt draußen, er kann Gesundheitsdaten verraten.
+func (s *Store) rueckmeldungMelden(ctx context.Context, tx pgx.Tx, vereinID, mannschaftID, terminID, spielerID, von, vorname,
+	status string, d Daten, nachFrist bool) error {
+	wort := "zugesagt"
+	if status == Ab {
+		wort = "abgesagt"
+	}
+	in := nachricht.Inhalt{
+		Betreff: vorname + " hat " + wort + ": " + kurz(d),
+		Text:    "Für " + vorname + " wurde " + kurz(d) + " " + wort + ".",
+		Pfad:    "/t/" + terminID,
+	}
+	konten, err := nachricht.Spieler(ctx, tx, spielerID, von)
+	if err != nil {
+		return err
+	}
+	if status == Ab && nachFrist {
+		trainer, err := nachricht.Trainer(ctx, tx, mannschaftID, von)
+		if err != nil {
+			return err
+		}
+		konten = append(konten, trainer...)
+		in.Betreff = "Absage nach Frist: " + vorname + ", " + kurz(d)
+	}
+	return nachricht.An(ctx, tx, vereinID, konten, in, s.Now())
 }
 
 // Rueckmeldungen listet alle Spieler im Kader der Termin-Mannschaft mit ihrem Stand.

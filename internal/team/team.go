@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ruben-sch/teamtafel/internal/db"
+	"github.com/ruben-sch/teamtafel/internal/nachricht"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
 
@@ -207,6 +208,7 @@ func (s *Store) AnfrageStellen(ctx context.Context, vereinID, mannschaftID, kont
 	a := Anfrage{AnfrageDaten: d}
 	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		var treffer *string
+		var neu bool // false, wenn eine offene Anfrage nur aktualisiert wurde
 		err := tx.QueryRow(ctx, `
 SELECT id::text FROM spieler
 WHERE lower(vorname) = lower($1) AND lower(nachname) = lower($2) AND jahrgang = $3
@@ -217,13 +219,29 @@ ORDER BY created_at LIMIT 1`, d.Vorname, d.Nachname, d.Jahrgang).Scan(&treffer)
 		if treffer != nil {
 			a.TrefferSpielerID = *treffer
 		}
-		return tx.QueryRow(ctx, `
+		err = tx.QueryRow(ctx, `
 INSERT INTO beitrittsanfrage (verein_id, mannschaft_id, konto_id, art, vorname, nachname, jahrgang, treffer_spieler_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (mannschaft_id, konto_id, lower(vorname), lower(nachname), jahrgang) WHERE status = 'offen'
 DO UPDATE SET art = EXCLUDED.art
-RETURNING id::text, created_at`, vereinID, mannschaftID, kontoID, d.Art, d.Vorname, d.Nachname, d.Jahrgang, treffer).
-			Scan(&a.ID, &a.Erstellt)
+RETURNING id::text, created_at, xmax = 0`, vereinID, mannschaftID, kontoID, d.Art, d.Vorname, d.Nachname, d.Jahrgang, treffer).
+			Scan(&a.ID, &a.Erstellt, &neu)
+		if err != nil || !neu {
+			return err
+		}
+		trainer, err := nachricht.Trainer(ctx, tx, mannschaftID, kontoID)
+		if err != nil {
+			return err
+		}
+		var mannschaft string
+		if err := tx.QueryRow(ctx, `SELECT name FROM mannschaft WHERE id = $1`, mannschaftID).Scan(&mannschaft); err != nil {
+			return err
+		}
+		return nachricht.An(ctx, tx, vereinID, trainer, nachricht.Inhalt{
+			Betreff: mannschaft + ": Neue Beitrittsanfrage für " + d.Vorname,
+			Text:    d.Vorname + " möchte in die Mannschaft " + mannschaft + ". Bitte gib die Anfrage frei oder lehne sie ab.",
+			Pfad:    "/m/" + mannschaftID,
+		}, time.Now())
 	})
 	if err != nil {
 		return Anfrage{}, fmt.Errorf("anfrage stellen: %w", err)

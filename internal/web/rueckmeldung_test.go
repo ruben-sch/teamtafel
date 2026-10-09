@@ -14,7 +14,7 @@ import (
 func (w *terminWelt) termin(t *testing.T, frist *time.Time) termin.Termin {
 	t.Helper()
 	b := time.Now().In(termin.Zeitzone).AddDate(0, 0, 3).Truncate(time.Hour)
-	tm, err := w.termine.Anlegen(context.Background(), w.verein.ID, w.bambini.ID, termin.Daten{
+	tm, err := w.termine.Anlegen(context.Background(), w.verein.ID, w.bambini.ID, "", termin.Daten{
 		Typ: termin.TypTraining, Beginn: b, Ende: b.Add(time.Hour), Frist: frist,
 	})
 	if err != nil {

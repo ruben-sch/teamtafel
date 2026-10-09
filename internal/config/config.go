@@ -26,6 +26,8 @@ type Config struct {
 	MailFrom string
 	// Superadmins sind die Plattform-Admins (SUPERADMIN_EMAILS, durch Komma oder Leerzeichen getrennt).
 	Superadmins []string
+	// MailAllowlist beschränkt Benachrichtigungen auf diese Adressen (MAIL_ALLOWLIST, für Staging); leer heißt alle.
+	MailAllowlist []string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -44,9 +46,8 @@ func FromEnv(version string) (Config, error) {
 		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
 		MailFrom:           os.Getenv("MAIL_FROM"),
 		Version:            version,
-		Superadmins: strings.FieldsFunc(os.Getenv("SUPERADMIN_EMAILS"), func(r rune) bool {
-			return r == ',' || r == ' ' || r == ';'
-		}),
+		Superadmins:        liste(os.Getenv("SUPERADMIN_EMAILS")),
+		MailAllowlist:      liste(os.Getenv("MAIL_ALLOWLIST")),
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL ist nicht gesetzt")
@@ -58,6 +59,11 @@ func FromEnv(version string) (Config, error) {
 		c.MigrateDatabaseURL = c.DatabaseURL
 	}
 	return c, nil
+}
+
+// liste trennt Adressen an Komma, Semikolon oder Leerzeichen.
+func liste(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' || r == ';' })
 }
 
 func getenv(key, fallback string) string {
