@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -378,4 +379,59 @@ func (s *Store) spieler(ctx context.Context, vereinID, query string, arg string)
 func hash(token string) []byte {
 	h := sha256.Sum256([]byte(token))
 	return h[:]
+}
+
+// SpielerAufbewahrung: so lange bleibt ein Spieler ohne Kader bestehen.
+const SpielerAufbewahrung = 6 // Monate
+
+// SpielerOhneKaderLoeschen löscht Spieler, die seit mehr als sechs Monaten in keinem
+// Kader stehen, samt Rückmeldungen und Vertretungen. Als Kader zählt jede Mannschaft
+// einer Saison, die noch nicht zu Ende ist; ohne jeden Kader zählt das Anlegen.
+// Freigegebene Anfragen abgelaufener Saisons gehen mit, weil sie Namen enthalten.
+func (s *Store) SpielerOhneKaderLoeschen(ctx context.Context, vereinID string, jetzt time.Time) error {
+	grenze := jetzt.AddDate(0, -SpielerAufbewahrung, 0)
+	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
+DELETE FROM spieler sp
+WHERE coalesce((SELECT max(sa.ende) + 1 FROM kader k
+	JOIN mannschaft m ON m.id = k.mannschaft_id JOIN saison sa ON sa.id = m.saison_id
+	WHERE k.spieler_id = sp.id)::timestamptz, sp.created_at) < $1`, grenze)
+		if err != nil {
+			return fmt.Errorf("spieler ohne kader löschen: %w", err)
+		}
+		if n := tag.RowsAffected(); n > 0 {
+			slog.Info("spieler ohne kader gelöscht", "verein", vereinID, "anzahl", n)
+		}
+		_, err = tx.Exec(ctx, `
+DELETE FROM beitrittsanfrage a USING mannschaft m, saison sa
+WHERE m.id = a.mannschaft_id AND sa.id = m.saison_id AND a.status = 'freigegeben'
+	AND (sa.ende + 1)::timestamptz < $1`, grenze)
+		if err != nil {
+			return fmt.Errorf("alte anfragen löschen: %w", err)
+		}
+		return nil
+	})
+}
+
+// VerknuepfteKonten listet die Konten, die im Verein Trainer, Admin, eigener Spieler,
+// Vertretung oder Anfragende mit offener Anfrage sind.
+func (s *Store) VerknuepfteKonten(ctx context.Context, vereinID string) ([]string, error) {
+	var out []string
+	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+SELECT konto_id::text FROM trainer
+UNION SELECT konto_id::text FROM verein_admin
+UNION SELECT konto_id::text FROM vertretung
+UNION SELECT konto_id::text FROM spieler WHERE konto_id IS NOT NULL
+UNION SELECT konto_id::text FROM beitrittsanfrage WHERE status = 'offen'`)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("verknüpfte konten: %w", err)
+	}
+	return out, nil
 }
