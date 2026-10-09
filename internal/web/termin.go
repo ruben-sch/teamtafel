@@ -28,6 +28,45 @@ type Termine interface {
 	Serie(ctx context.Context, vereinID, serieID string) (termin.Serie, error)
 	Serien(ctx context.Context, vereinID, mannschaftID string) ([]termin.Serie, error)
 	SerieBeenden(ctx context.Context, vereinID, serieID string) error
+	Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, kontoID, status, grund string, alsTrainer bool) error
+	Rueckmeldungen(ctx context.Context, vereinID, terminID string) ([]termin.Rueckmeldung, error)
+	MeineSpieler(ctx context.Context, vereinID, kontoID string, terminIDs []string) (map[string][]termin.Rueckmeldung, error)
+}
+
+// terminKarte ist ein Termin in einer Liste, mit den eigenen Spielern für Zu und Ab.
+type terminKarte struct {
+	termin.Termin
+	Meine []termin.Rueckmeldung
+	// Moeglich: Eltern und Spieler können noch antworten (nicht abgesagt, Frist offen).
+	Moeglich bool
+	// Zaehler: Zu, Ab und Offen anzeigen (Trainer-Übersicht).
+	Zaehler bool
+}
+
+// fristOffen: Bis zur Frist, ohne Frist bis zum Beginn, dürfen Eltern und Spieler antworten.
+func fristOffen(t termin.Termin) bool {
+	ende := t.Beginn
+	if t.Frist != nil {
+		ende = *t.Frist
+	}
+	return !t.Abgesagt && time.Now().Before(ende)
+}
+
+// karten ergänzt die Termine um die Spieler, für die das Konto antworten darf.
+func karten(ctx context.Context, ts Termine, vereinID, kontoID string, termine []termin.Termin, zaehler bool) ([]terminKarte, error) {
+	ids := make([]string, len(termine))
+	for i, t := range termine {
+		ids[i] = t.ID
+	}
+	meine, err := ts.MeineSpieler(ctx, vereinID, kontoID, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]terminKarte, len(termine))
+	for i, t := range termine {
+		out[i] = terminKarte{Termin: t, Meine: meine[t.ID], Moeglich: fristOffen(t), Zaehler: zaehler}
+	}
+	return out, nil
 }
 
 var wochentage = [...]string{"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"}
@@ -50,8 +89,28 @@ var funcs = template.FuncMap{
 		return "Training"
 	},
 	"minuten": func(d time.Duration) int { return int(d.Minutes()) },
-	"list":    func(s ...string) []string { return s },
-	"inc":     func(i int) int { return i + 1 },
+	"statusText": func(s string) string {
+		switch s {
+		case termin.Zu:
+			return "zugesagt"
+		case termin.Ab:
+			return "abgesagt"
+		}
+		return "offen"
+	},
+	"grundText": func(g string) string {
+		switch g {
+		case termin.GrundKrank:
+			return "krank"
+		case termin.GrundUrlaub:
+			return "Urlaub"
+		case termin.GrundSonstiges:
+			return "sonstiges"
+		}
+		return ""
+	},
+	"list": func(s ...string) []string { return s },
+	"inc":  func(i int) int { return i + 1 },
 }
 
 // heute liefert Mitternacht in Berlin; Listen zeigen auch heutige, schon begonnene Termine.
@@ -336,19 +395,82 @@ func (s *teamSeiten) terminLaden(w http.ResponseWriter, r *http.Request) (verein
 }
 
 type terminSeite struct {
-	Titel     string
-	Termin    termin.Termin
-	Verwalter bool
-	Form      terminForm
-	Fehler    string
+	Titel       string
+	Termin      termin.Termin
+	Verwalter   bool
+	Form        terminForm
+	Fehler      string
+	Meine       []termin.Rueckmeldung
+	Alle        []termin.Rueckmeldung
+	FristOffen  bool
+	FristVorbei bool
 }
 
 func (s *teamSeiten) terminDetail(w http.ResponseWriter, r *http.Request) {
-	_, t, verwalter, ok := s.terminLaden(w, r)
+	v, t, verwalter, ok := s.terminLaden(w, r)
 	if !ok {
 		return
 	}
-	render(w, "termin.html", terminSeite{Titel: t.Mannschaft, Termin: t, Verwalter: verwalter, Form: terminFormAus(t.Daten)})
+	s.terminSeiteZeigen(w, r, v, http.StatusOK, terminSeite{Termin: t, Verwalter: verwalter, Form: terminFormAus(t.Daten)})
+}
+
+func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v verein.Verein, status int, seite terminSeite) {
+	ctx := r.Context()
+	k, _ := kontoAus(ctx)
+	t := seite.Termin
+	meine, err := s.termine.MeineSpieler(ctx, v.ID, k.ID, []string{t.ID})
+	if err != nil {
+		interner(w, "eigene spieler laden", err)
+		return
+	}
+	if seite.Alle, err = s.termine.Rueckmeldungen(ctx, v.ID, t.ID); err != nil {
+		interner(w, "rückmeldungen laden", err)
+		return
+	}
+	seite.Titel, seite.Meine = t.Mannschaft, meine[t.ID]
+	seite.FristOffen = fristOffen(t)
+	seite.FristVorbei = !t.Abgesagt && !seite.FristOffen
+	renderStatus(w, status, "termin.html", seite)
+}
+
+func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
+	v, t, verwalter, ok := s.terminLaden(w, r)
+	if !ok {
+		return
+	}
+	k, _ := kontoAus(r.Context())
+	spieler := r.PathValue("spieler")
+	if !uuidPattern.MatchString(spieler) {
+		http.NotFound(w, r)
+		return
+	}
+	status, grund := r.PostFormValue("status"), ""
+	if status == termin.Ab {
+		// Das Formular schickt die Grundauswahl bei beiden Knöpfen mit; nur Absagen haben einen Grund.
+		grund = r.PostFormValue("grund")
+	}
+	err := s.termine.Rueckmelden(r.Context(), v.ID, t.ID, spieler, k.ID, status, grund, verwalter)
+	zurueck := "/t/" + t.ID
+	switch {
+	case errors.Is(err, termin.ErrUngueltig):
+		http.Error(w, "Ungültige Rückmeldung", http.StatusBadRequest)
+	case errors.Is(err, termin.ErrNichtBerechtigt):
+		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+			Titel: "Kein Zugriff", Text: "Für diesen Spieler kannst du nicht zu- oder absagen.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
+		})
+	case errors.Is(err, termin.ErrFristVorbei), errors.Is(err, termin.ErrAbgesagt):
+		renderStatus(w, http.StatusConflict, "meldung.html", meldung{
+			Titel: "Nicht mehr möglich", Text: "Die Frist ist vorbei oder der Termin wurde abgesagt. Bitte sag dem Trainer direkt Bescheid.",
+			LinkZiel: zurueck, LinkText: "Zurück zum Termin",
+		})
+	case err != nil:
+		interner(w, "rückmelden", err)
+	default:
+		if z := r.PostFormValue("zurueck"); z != "" {
+			zurueck = sicheresZiel(z)
+		}
+		http.Redirect(w, r, zurueck, http.StatusSeeOther)
+	}
 }
 
 func (s *teamSeiten) verwalterTermin(w http.ResponseWriter, r *http.Request) (verein.Verein, termin.Termin, bool) {
@@ -373,8 +495,7 @@ func (s *teamSeiten) terminAendern(w http.ResponseWriter, r *http.Request) {
 		err = s.termine.Aendern(r.Context(), v.ID, t.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
-		renderStatus(w, http.StatusBadRequest, "termin.html", terminSeite{Titel: t.Mannschaft, Termin: t, Verwalter: true,
-			Form: f, Fehler: terminFehler})
+		s.terminSeiteZeigen(w, r, v, http.StatusBadRequest, terminSeite{Termin: t, Verwalter: true, Form: f, Fehler: terminFehler})
 		return
 	}
 	if err != nil {

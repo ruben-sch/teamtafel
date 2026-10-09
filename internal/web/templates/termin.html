@@ -22,6 +22,49 @@
     </div>
     {{- end}}
 
+    {{- $s := .}}
+    {{- if and .Meine (not .Termin.Abgesagt)}}
+    <h2>Rückmeldung</h2>
+    {{- if .FristVorbei}}
+    <p class="leise">Die Frist ist vorbei. Änderungen bitte direkt mit dem Trainer absprechen.</p>
+    {{- end}}
+    {{- range .Meine}}
+    <div class="karte">
+      <strong>{{.Vorname}}</strong>: <span class="status-{{.Status}}">{{statusText .Status}}</span>
+      {{- if $s.FristOffen}}
+      <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}" class="antwort">
+        <button name="status" value="zu" class="zu{{if eq .Status "zu"}} aktiv{{end}}">Zu</button>
+        <select name="grund" aria-label="Grund bei Absage">
+          <option value="">Grund (optional)</option>
+          <option value="krank"{{if eq .Grund "krank"}} selected{{end}}>krank</option>
+          <option value="urlaub"{{if eq .Grund "urlaub"}} selected{{end}}>Urlaub</option>
+          <option value="sonstiges"{{if eq .Grund "sonstiges"}} selected{{end}}>sonstiges</option>
+        </select>
+        <button name="status" value="ab" class="ab{{if eq .Status "ab"}} aktiv{{end}}">Ab</button>
+      </form>
+      {{- end}}
+    </div>
+    {{- end}}
+    {{- end}}
+
+    {{- if and .Alle (not .Termin.Abgesagt)}}
+    <h2>Team</h2>
+    <p class="leise">{{.Termin.Zu}} zu · {{.Termin.Ab}} ab · {{.Termin.Offen}} offen</p>
+    <ul class="team">
+      {{- range .Alle}}
+      <li>
+        <span>{{.Vorname}}{{if $s.Verwalter}} {{.Nachname}}{{end}}: <span class="status-{{.Status}}">{{if and $s.Verwalter (eq .Status "ab") .Grund}}Ab ({{grundText .Grund}}){{else}}{{statusText .Status}}{{end}}</span></span>
+        {{- if $s.Verwalter}}
+        <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}" class="inline">
+          <button name="status" value="zu" class="leise">zu</button>
+          <button name="status" value="ab" class="leise">ab</button>
+        </form>
+        {{- end}}
+      </li>
+      {{- end}}
+    </ul>
+    {{- end}}
+
     {{- if .Verwalter}}
     <details{{if .Fehler}} open{{end}}>
       <summary>Termin ändern</summary>

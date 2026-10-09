@@ -14,7 +14,7 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/verein/` – Mandanten (Verein), Saisons, Mannschaften.
 - `internal/auth/` – Magic-Link-Login, Sessions, Rate-Limit.
 - `internal/team/` – Trainer, Spieler, Vertretungen (Eltern), Kader, Team-Links und Beitrittsanfragen.
-- `internal/termin/` – Termine und wöchentliche Serien; ein stündlicher Job (`main.go`) erzeugt Serientermine 8 Wochen im Voraus. Zeiten in Europe/Berlin, gespeichert in UTC.
+- `internal/termin/` – Termine, wöchentliche Serien und Rückmeldungen (Zu/Ab); ein stündlicher Job (`main.go`) erzeugt Serientermine 8 Wochen im Voraus. Zeiten in Europe/Berlin, gespeichert in UTC.
 - `internal/mail/` – SMTP-Versand (lokal Mailpit, sonst Resend); Tests laufen gegen Mailpit (`TEST_SMTP_ADDR`, `TEST_MAILPIT_URL`).
 - `internal/web/` – Handler und Templates; `mandant.go` löst den Verein aus der Subdomain auf.
 - `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.

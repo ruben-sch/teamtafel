@@ -100,7 +100,7 @@ type mannschaftSeite struct {
 	IstTrainer bool
 	Anfragen   []team.Anfrage
 	Kader      []team.Spieler
-	Termine    []termin.Termin
+	Termine    []terminKarte
 	Serien     []termin.Serie
 }
 
@@ -129,7 +129,11 @@ func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.termine != nil {
 		ab := heute()
-		if seite.Termine, err = s.termine.Kommende(ctx, v.ID, id, ab, ab.Add(termin.Vorlauf+7*24*time.Hour)); err != nil {
+		ts, err := s.termine.Kommende(ctx, v.ID, id, ab, ab.Add(termin.Vorlauf+7*24*time.Hour))
+		if err == nil {
+			seite.Termine, err = karten(ctx, s.termine, v.ID, k.ID, ts, true)
+		}
+		if err != nil {
 			interner(w, "termine laden", err)
 			return
 		}
