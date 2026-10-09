@@ -1,0 +1,23 @@
+{{define "terminfelder"}}
+      <label for="typ">Art</label>
+      <select id="typ" name="typ">
+        <option value="training"{{if eq .Typ "training"}} selected{{end}}>Training</option>
+        <option value="spiel"{{if eq .Typ "spiel"}} selected{{end}}>Spiel</option>
+        <option value="sonstiges"{{if eq .Typ "sonstiges"}} selected{{end}}>Sonstiges</option>
+      </select>
+      <label for="titel">Titel <span class="leise">(optional, z. B. „gegen SV Nachbar“)</span></label>
+      <input type="text" id="titel" name="titel" value="{{.Titel}}">
+      <div class="zeile">
+        <div><label for="datum">Datum</label><input type="date" id="datum" name="datum" value="{{.Datum}}" required></div>
+        <div><label for="beginn">Beginn</label><input type="time" id="beginn" name="beginn" value="{{.Beginn}}" required></div>
+        <div><label for="ende">Ende</label><input type="time" id="ende" name="ende" value="{{.Ende}}" required></div>
+      </div>
+      <div class="zeile">
+        <div><label for="treffzeit">Treffen <span class="leise">(optional)</span></label><input type="time" id="treffzeit" name="treffzeit" value="{{.Treffzeit}}"></div>
+        <div><label for="frist">Rückmelden bis <span class="leise">(optional)</span></label><input type="datetime-local" id="frist" name="frist" value="{{.Frist}}"></div>
+      </div>
+      <label for="ort">Ort</label>
+      <input type="text" id="ort" name="ort" value="{{.Ort}}">
+      <label for="treffpunkt">Treffpunkt <span class="leise">(optional)</span></label>
+      <input type="text" id="treffpunkt" name="treffpunkt" value="{{.Treffpunkt}}">
+{{end}}

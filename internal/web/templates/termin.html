@@ -1,0 +1,42 @@
+{{template "kopf" .}}
+    <p><a href="/">Zur Startseite</a>{{if .Verwalter}} · <a href="/m/{{.Termin.MannschaftID}}">{{.Termin.Mannschaft}}</a>{{end}}</p>
+    {{- with .Termin}}
+    <h1>{{typName .Typ}}{{if .Titel}} {{.Titel}}{{end}}</h1>
+    <p class="leise">{{.Mannschaft}}</p>
+    {{- if .Abgesagt}}
+    <p class="fehler"><strong>Abgesagt</strong></p>
+    {{- end}}
+    <div class="karte">
+      <p><strong>{{datum .Beginn}}</strong>, {{uhrzeit .Beginn}} bis {{uhrzeit .Ende}} Uhr</p>
+      {{- if .Treffzeit}}
+      <p>Treffen um {{uhrzeit .Treffzeit}} Uhr{{if .Treffpunkt}}, {{.Treffpunkt}}{{end}}</p>
+      {{- else if .Treffpunkt}}
+      <p>Treffpunkt: {{.Treffpunkt}}</p>
+      {{- end}}
+      {{- if .Ort}}
+      <p>Ort: {{.Ort}}</p>
+      {{- end}}
+      {{- if .Frist}}
+      <p class="leise">Rückmelden bis {{datum .Frist}}, {{uhrzeit .Frist}} Uhr</p>
+      {{- end}}
+    </div>
+    {{- end}}
+
+    {{- if .Verwalter}}
+    <details{{if .Fehler}} open{{end}}>
+      <summary>Termin ändern</summary>
+      {{- if .Fehler}}
+      <p class="fehler">{{.Fehler}}</p>
+      {{- end}}
+      <form method="post" action="/t/{{.Termin.ID}}">
+        {{template "terminfelder" .Form}}
+        <button>Speichern</button>
+      </form>
+    </details>
+    {{- if not .Termin.Abgesagt}}
+    <form method="post" action="/t/{{.Termin.ID}}/absagen">
+      <button class="zweit">Termin absagen</button>
+    </form>
+    {{- end}}
+    {{- end}}
+{{template "fuss" .}}

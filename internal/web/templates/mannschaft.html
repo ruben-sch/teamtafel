@@ -3,6 +3,26 @@
     <h1>{{.Mannschaft.Name}}</h1>
     <p class="leise">Saison {{.Mannschaft.Saison}}</p>
 
+    <h2>Termine</h2>
+    <p><a href="/m/{{.Mannschaft.ID}}/termine/neu">Termin oder Serie anlegen</a></p>
+    {{- range .Termine}}
+    {{template "terminzeile" .}}
+    {{- else}}
+    <p>Keine kommenden Termine.</p>
+    {{- end}}
+
+    {{- if .Serien}}
+    <h2>Trainingsserien</h2>
+    <ul>
+      {{- range .Serien}}
+      <li>{{wochentag .Wochentag}}, {{.Uhrzeit}} Uhr, {{minuten .Dauer}} Minuten{{if .Ort}}, {{.Ort}}{{end}}
+        <form class="inline" method="post" action="/serien/{{.ID}}/beenden"><button class="leise">beenden</button></form></li>
+      {{- end}}
+    </ul>
+    <p class="leise">Beenden löscht die kommenden Termine der Serie, außer einzeln geänderten.</p>
+    {{- end}}
+
+    {{- if .IstTrainer}}
     <h2>Beitrittsanfragen</h2>
     {{- range .Anfragen}}
     <div class="karte">
@@ -21,6 +41,7 @@
     </div>
     {{- else}}
     <p>Keine offenen Anfragen.</p>
+    {{- end}}
     {{- end}}
 
     <h2>Kader</h2>

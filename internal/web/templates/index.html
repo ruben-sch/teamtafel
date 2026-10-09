@@ -14,6 +14,14 @@
     <h1>Teamtafel</h1>
     <p>Hallo! Hier entsteht die Teamverwaltung für unseren Verein.</p>
     {{- end}}
+    {{- if .Konto}}
+    <h2>Kommende Termine</h2>
+    {{- range .Termine}}
+    {{template "terminzeile" .}}
+    {{- else}}
+    <p>In den nächsten vier Wochen stehen keine Termine an.</p>
+    {{- end}}
+    {{- end}}
     {{- if .Trainer}}
     <h2>Meine Mannschaften</h2>
     <ul>

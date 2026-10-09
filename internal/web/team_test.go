@@ -24,6 +24,7 @@ type teamWelt struct {
 	auth    *auth.Store
 	team    *team.Store
 	verein  verein.Verein
+	vereine *verein.Store
 	bambini verein.Mannschaft
 	mailer  *fakeMailer
 }
@@ -42,7 +43,7 @@ func neueTeamWelt(t *testing.T) *teamWelt {
 		t.Fatal(err)
 	}
 	w := &teamWelt{t: t, host: v.Slug + ".teamtafel.example", auth: auth.NewStore(pool), team: team.NewStore(pool),
-		verein: v, bambini: m, mailer: &fakeMailer{}}
+		verein: v, vereine: vs, bambini: m, mailer: &fakeMailer{}}
 	w.h = NewHandler(Options{
 		DB: fakePinger{}, Vereine: vs, Auth: w.auth, Team: w.team, Mailer: w.mailer,
 		BaseHost: "teamtafel.example", Scheme: "https", Version: "test",
