@@ -24,7 +24,7 @@ Jeder Verein ist ein Mandant und läuft unter `<slug>.<APP_HOST>`.
 
 ### Benachrichtigungen
 
-Per E-Mail, Web Push folgt. Jede Benachrichtigung entsteht als Job in derselben Transaktion wie die Änderung; ein Worker im App-Prozess verschickt sie und versucht es bei Fehlern bis zu acht Mal mit wachsendem Abstand.
+Per Web Push an alle Geräte, die ein Konto unter „Einstellungen“ freigeschaltet hat, sonst per E-Mail; Terminabsagen kommen immer auch per E-Mail. Push braucht ein VAPID-Schlüsselpaar je Environment (Secret `VAPID_PRIVATE_KEY`, Variable `VAPID_PUBLIC_KEY`); ohne bleibt es bei E-Mail. Auf dem iPhone geht Push nur, wenn Teamtafel auf dem Home-Bildschirm liegt. Jede Benachrichtigung entsteht als Job in derselben Transaktion wie die Änderung; ein Worker im App-Prozess verschickt sie und versucht es bei Fehlern bis zu acht Mal mit wachsendem Abstand.
 
 | Ereignis | Empfänger |
 |---|---|
@@ -33,9 +33,9 @@ Per E-Mail, Web Push folgt. Jede Benachrichtigung entsteht als Job in derselben 
 | Zu- oder Absage geändert | andere Konten desselben Spielers; nach der Frist auch die Trainer |
 | Neue Beitrittsanfrage | Trainer der Mannschaft |
 
-Neue Serientermine und vergangene Termine lösen nichts aus. Inhalte nennen nur Vornamen und nie den Absagegrund. Auf Staging begrenzt die Environment-Variable `MAIL_ALLOWLIST` (Adressen durch Komma getrennt) den Versand, damit keine echten Eltern Post bekommen; Login-Mails sind davon ausgenommen.
+Neue Serientermine und vergangene Termine lösen nichts aus. Inhalte nennen nur Vornamen und nie den Absagegrund. Auf Staging begrenzt die Environment-Variable `MAIL_ALLOWLIST` (Adressen durch Komma getrennt) Push und E-Mail, damit keine echten Eltern Post bekommen; Login-Mails sind davon ausgenommen.
 
-Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Wildcard-Einträge `*.teamtafel.schwarzpost.de` und `*.staging.teamtafel.schwarzpost.de` auf die VM.
+Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.
 
 Lokal: `http://<slug>.localhost:8080` (Browser lösen `*.localhost` selbst auf).
 
