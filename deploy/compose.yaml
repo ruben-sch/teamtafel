@@ -31,12 +31,15 @@ services:
     environment:
       DATABASE_URL: postgres://teamtafel_app:${APP_DB_PASSWORD}@db:5432/teamtafel?sslmode=disable
       MIGRATE_DATABASE_URL: postgres://teamtafel:${POSTGRES_PASSWORD}@db:5432/teamtafel?sslmode=disable
+      APP_HOST: ${APP_HOST:?}
     networks:
       - default
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.${STACK:?}.rule=Host(`${APP_HOST:?}`)"
+      # HOST_RULE: Hauptdomain plus je Verein <slug>.APP_HOST, erzeugt vom Deploy-Workflow.
+      # Einzelne Hosts statt HostRegexp, damit Traefik per HTTP-Challenge Zertifikate holt.
+      - "traefik.http.routers.${STACK:?}.rule=${HOST_RULE:?}"
       - "traefik.http.routers.${STACK}.tls=true"
       - "traefik.http.routers.${STACK}.tls.certresolver=letsencrypt"
       - "traefik.http.services.${STACK}.loadbalancer.server.port=8080"

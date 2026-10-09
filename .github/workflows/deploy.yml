@@ -4,6 +4,7 @@ name: Deploy
 # Repo-Secrets: HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY
 # Secrets je GitHub-Environment (staging, production):
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
+# Variable je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt"
 on:
   push:
     branches: [main]
@@ -90,6 +91,7 @@ jobs:
         env:
           DEPLOY_ENV: ${{ env.IS_RELEASE == 'true' && 'production' || 'staging' }}
           APP_HOST: ${{ secrets.APP_HOST }}
+          VEREIN_SLUGS: ${{ vars.VEREIN_SLUGS }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -98,7 +100,7 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,POSTGRES_PASSWORD,APP_DB_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,POSTGRES_PASSWORD,APP_DB_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -109,11 +111,19 @@ jobs:
               STACK=teamtafel-staging; IMAGE_TAG=staging; FILES="-f compose.yaml -f compose.staging.yaml"
             fi
 
+            # Traefik-Regel: Hauptdomain und eine Subdomain je Verein.
+            BT='`'
+            HOST_RULE="Host(${BT}${APP_HOST}${BT})"
+            for slug in $(echo "${VEREIN_SLUGS:-}" | tr ',' ' '); do
+              HOST_RULE="$HOST_RULE || Host(${BT}${slug}.${APP_HOST}${BT})"
+            done
+
             umask 077
             cat > ".env.$DEPLOY_ENV" <<EOF
             STACK=$STACK
             IMAGE_TAG=$IMAGE_TAG
             APP_HOST=$APP_HOST
+            HOST_RULE='$HOST_RULE'
             POSTGRES_PASSWORD=$POSTGRES_PASSWORD
             APP_DB_PASSWORD=$APP_DB_PASSWORD
             EOF

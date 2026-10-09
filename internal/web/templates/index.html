@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Teamtafel</title>
+  <title>{{if .Verein}}{{.Verein.Name}} · {{end}}Teamtafel</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; background: #f6f7f9; color: #1d2330; }
     main { max-width: 32rem; margin: 0 auto; }
@@ -14,8 +14,21 @@
 </head>
 <body>
   <main>
+    {{- if .Verein}}
+    <h1>{{.Verein.Name}}</h1>
+    {{- if .Mannschaften}}
+    <ul>
+      {{- range .Mannschaften}}
+      <li>{{.Name}} <span class="version">{{.Saison}}</span></li>
+      {{- end}}
+    </ul>
+    {{- else}}
+    <p>Noch keine Mannschaften angelegt.</p>
+    {{- end}}
+    {{- else}}
     <h1>Teamtafel</h1>
     <p>Hallo! Hier entsteht die Teamverwaltung für unseren Verein.</p>
+    {{- end}}
     <p class="version">Version {{.Version}}</p>
   </main>
 </body>

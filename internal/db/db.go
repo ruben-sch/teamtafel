@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // registriert den Treiber "pgx" für goose
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 
 	"github.com/ruben-sch/teamtafel/migrations"
 )
@@ -34,7 +35,12 @@ func Migrate(ctx context.Context, url string) error {
 	}
 	defer func() { _ = sqlDB.Close() }()
 
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.FS)
+	// Advisory-Lock: Starten mehrere Prozesse gleichzeitig, migriert nur einer.
+	locker, err := lock.NewPostgresSessionLocker()
+	if err != nil {
+		return fmt.Errorf("migrations-lock: %w", err)
+	}
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.FS, goose.WithSessionLocker(locker))
 	if err != nil {
 		return fmt.Errorf("migrationen laden: %w", err)
 	}

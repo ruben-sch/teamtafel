@@ -12,6 +12,19 @@ make test    # alle Tests inkl. Integration gegen Postgres
 make lint
 ```
 
+## Vereine und Mannschaften anlegen
+
+Jeder Verein ist ein Mandant und läuft unter `<slug>.<APP_HOST>`. Bis es eine Admin-Oberfläche gibt, legt die CLI im Container Vereine an:
+
+```sh
+docker compose -p teamtafel-staging exec app /teamtafel verein-anlegen demo "Demo FC"
+docker compose -p teamtafel-staging exec app /teamtafel mannschaft-anlegen demo 2026/27 Bambini
+```
+
+Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Wildcard-Einträge `*.teamtafel.schwarzpost.de` und `*.staging.teamtafel.schwarzpost.de` auf die VM.
+
+Lokal: `http://<slug>.localhost:8080` (Browser lösen `*.localhost` selbst auf).
+
 ## Deployment
 
 | Auslöser | Umgebung | Image-Tag | Compose-Projekt |

@@ -11,7 +11,9 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `cmd/teamtafel/` – Einstieg: migriert, startet den Server; Subcommand `healthcheck` für Docker.
 - `internal/config/` – Konfiguration ausschließlich aus Umgebungsvariablen.
 - `internal/db/` – Pool und Migrationen.
-- `internal/web/` – Handler und Templates.
+- `internal/verein/` – Mandanten (Verein), Saisons, Mannschaften.
+- `internal/web/` – Handler und Templates; `mandant.go` löst den Verein aus der Subdomain auf.
+- `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.
 - `migrations/` – SQL-Migrationen (`NNNNN_name.sql`), per `embed` im Binary.
 - `deploy/` – Compose-Dateien für Staging/Produktion und das Init-Skript der App-Rolle.
 
@@ -23,6 +25,8 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 
 ## Sicherheit
 - Die App verbindet sich als `teamtafel_app` (ohne BYPASSRLS), Migrationen laufen als Owner `teamtafel`. Mandantentrennung per Row-Level-Security.
+- Jede Tabelle mit `verein_id` braucht RLS und die Policy `verein_id = NULLIF(current_setting('app.verein_id', true), '')::uuid` (USING und WITH CHECK). `NULLIF` ist nötig, weil der Wert auf wiederverwendeten Pool-Verbindungen nach einer Transaktion `''` statt NULL ist. `TestJedeVereinstabelleHatRLS` prüft das.
+- Vereinsdaten nur über `db.InVerein` lesen und schreiben; Integrationstests nutzen `dbtest.AppPool`, nie den Superuser, sonst greift RLS nicht.
 - Keine Secrets im Repo. Passwörter kommen aus GitHub-Environment-Secrets.
 
 ## Git
