@@ -31,12 +31,6 @@ func main() {
 		switch os.Args[1] {
 		case "healthcheck":
 			os.Exit(healthcheck())
-		case "verein-anlegen", "mannschaft-anlegen", "trainer-hinzufuegen":
-			if err := admin(os.Args[1], os.Args[2:]); err != nil {
-				fmt.Fprintln(os.Stderr, "fehler:", err)
-				os.Exit(1)
-			}
-			return
 		}
 	}
 	if err := run(); err != nil {
@@ -75,9 +69,10 @@ func run() error {
 				User: cfg.SMTPUser, Password: cfg.SMTPPassword,
 				From: cfg.MailFrom,
 			}),
-			Scheme:   cfg.Scheme,
-			BaseHost: cfg.BaseHost,
-			Version:  cfg.Version,
+			Superadmins: cfg.Superadmins,
+			Scheme:      cfg.Scheme,
+			BaseHost:    cfg.BaseHost,
+			Version:     cfg.Version,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

@@ -1,0 +1,29 @@
+{{template "kopf" .}}
+    <p><a href="/">Zur Startseite</a></p>
+    <h1>Plattform-Verwaltung</h1>
+
+    <h2>Vereine</h2>
+    {{- if .Vereine}}
+    <ul>
+      {{- range .Vereine}}
+      <li>{{.Name}} <span class="leise"><a href="{{.URL}}">{{.URL}}</a> · <a href="{{.URL}}/admin">Verwaltung</a></span></li>
+      {{- end}}
+    </ul>
+    {{- else}}
+    <p>Noch keine Vereine.</p>
+    {{- end}}
+
+    <h2>Verein anlegen</h2>
+    <form method="post" action="/admin/vereine">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" value="{{.Form.name}}" placeholder="FC Beispiel" required>
+      <label for="slug">Subdomain</label>
+      <input type="text" id="slug" name="slug" value="{{.Form.slug}}" placeholder="fc-beispiel" pattern="[a-z0-9-]+" required>
+      <label for="admin">E-Mail des Vereinsadmins</label>
+      <input type="email" id="admin" name="admin" value="{{.Form.admin}}" required>
+      {{- if .Fehler}}
+      <p class="fehler">{{.Fehler}}</p>
+      {{- end}}
+      <button>Verein anlegen</button>
+    </form>
+{{template "fuss" .}}

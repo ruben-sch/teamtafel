@@ -21,6 +21,9 @@ import (
 
 // Team verwaltet Trainer, Kader, Team-Links und Beitrittsanfragen.
 type Team interface {
+	Trainer(ctx context.Context, vereinID, mannschaftID string) ([]team.Trainer, error)
+	TrainerHinzufuegen(ctx context.Context, vereinID, mannschaftID, kontoID string) error
+	TrainerEntfernen(ctx context.Context, vereinID, mannschaftID, kontoID string) error
 	IstTrainer(ctx context.Context, vereinID, mannschaftID, kontoID string) (bool, error)
 	TrainerMannschaften(ctx context.Context, vereinID, kontoID string) ([]verein.Mannschaft, error)
 	Mannschaft(ctx context.Context, vereinID, mannschaftID string) (verein.Mannschaft, error)

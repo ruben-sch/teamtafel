@@ -181,3 +181,75 @@ WHERE c.relkind = 'r'`)
 		t.Fatalf("nur %d vereinstabellen gefunden, erwartet mindestens saison und mannschaft", count)
 	}
 }
+
+func TestVereinsadmins(t *testing.T) {
+	pool := dbtest.AppPool(t)
+	store := verein.NewStore(pool)
+	ctx := context.Background()
+	v, err := store.Anlegen(ctx, eindeutigerSlug("adm"), "SV Admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kontoID string
+	email := eindeutigerSlug("admin") + "@example.org"
+	if err := pool.QueryRow(ctx, `INSERT INTO konto (email) VALUES ($1) RETURNING id::text`, email).Scan(&kontoID); err != nil {
+		t.Fatal(err)
+	}
+
+	if ok, err := store.IstAdmin(ctx, v.ID, kontoID); err != nil || ok {
+		t.Fatalf("vor dem eintragen: %v %v", ok, err)
+	}
+	if err := store.AdminHinzufuegen(ctx, v.ID, kontoID); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AdminHinzufuegen(ctx, v.ID, kontoID); err != nil {
+		t.Fatalf("zweimal eintragen: %v", err)
+	}
+	if ok, err := store.IstAdmin(ctx, v.ID, kontoID); err != nil || !ok {
+		t.Fatalf("nach dem eintragen: %v %v", ok, err)
+	}
+	admins, err := store.Admins(ctx, v.ID)
+	if err != nil || len(admins) != 1 || admins[0] != email {
+		t.Fatalf("admins = %v %v", admins, err)
+	}
+
+	// Admin eines Vereins ist nicht Admin eines anderen.
+	w, _ := store.Anlegen(ctx, eindeutigerSlug("adm"), "SV Anders")
+	if ok, _ := store.IstAdmin(ctx, w.ID, kontoID); ok {
+		t.Fatal("admin gilt vereinsübergreifend")
+	}
+}
+
+func TestAlleVereineUndDoppelterSlug(t *testing.T) {
+	store := verein.NewStore(dbtest.AppPool(t))
+	ctx := context.Background()
+	slug := eindeutigerSlug("alle")
+	if _, err := store.Anlegen(ctx, slug, "FC Alle"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Anlegen(ctx, slug, "FC Doppelt"); !errors.Is(err, verein.ErrSlugVergeben) {
+		t.Fatalf("err = %v, want ErrSlugVergeben", err)
+	}
+	alle, err := store.Alle(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range alle {
+		if v.Slug == slug {
+			return
+		}
+	}
+	t.Fatalf("%s fehlt in %v", slug, alle)
+}
+
+func TestMannschaftDoppeltInSaison(t *testing.T) {
+	store := verein.NewStore(dbtest.AppPool(t))
+	ctx := context.Background()
+	v, _ := store.Anlegen(ctx, eindeutigerSlug("dop"), "FC Doppelt")
+	if _, err := store.MannschaftAnlegen(ctx, v.ID, "2026/27", "F1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.MannschaftAnlegen(ctx, v.ID, "2026/27", "F1"); !errors.Is(err, verein.ErrMannschaftVorhanden) {
+		t.Fatalf("err = %v, want ErrMannschaftVorhanden", err)
+	}
+}

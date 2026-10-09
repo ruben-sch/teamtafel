@@ -32,12 +32,19 @@ type Pinger interface {
 type Vereine interface {
 	BySlug(ctx context.Context, slug string) (verein.Verein, error)
 	Mannschaften(ctx context.Context, vereinID string) ([]verein.Mannschaft, error)
+	Alle(ctx context.Context) ([]verein.Verein, error)
+	Anlegen(ctx context.Context, slug, name string) (verein.Verein, error)
+	MannschaftAnlegen(ctx context.Context, vereinID, saison, name string) (verein.Mannschaft, error)
+	AdminHinzufuegen(ctx context.Context, vereinID, kontoID string) error
+	IstAdmin(ctx context.Context, vereinID, kontoID string) (bool, error)
+	Admins(ctx context.Context, vereinID string) ([]string, error)
 }
 
 // Auth verwaltet Login-Links und Sessions.
 type Auth interface {
 	LinkAnfordern(ctx context.Context, email string) (string, error)
 	Einloesen(ctx context.Context, token string) (string, auth.Konto, error)
+	KontoFuer(ctx context.Context, email string) (auth.Konto, error)
 	Sitzung(ctx context.Context, token string) (auth.Konto, error)
 	Abmelden(ctx context.Context, token string) error
 }
@@ -55,6 +62,8 @@ type Options struct {
 	Mailer  Mailer
 	// Team ist optional; ohne fehlen die Mannschafts- und Beitrittsseiten.
 	Team Team
+	// Superadmins sind die E-Mail-Adressen der Plattform-Admins.
+	Superadmins []string
 	// Scheme für Links in Mails: "https", lokal "http".
 	Scheme string
 	// BaseHost ist die Hauptdomain, z. B. teamtafel.schwarzpost.de.
@@ -68,6 +77,12 @@ func NewHandler(o Options) http.Handler {
 	if o.Scheme == "" {
 		o.Scheme = "https"
 	}
+	rollen := &rollen{vereine: o.Vereine, superadmins: map[string]bool{}}
+	for _, e := range o.Superadmins {
+		if e = auth.NormalisiereEmail(e); e != "" {
+			rollen.superadmins[e] = true
+		}
+	}
 	l := &login{
 		auth:       o.Auth,
 		mailer:     o.Mailer,
@@ -77,7 +92,7 @@ func NewHandler(o Options) http.Handler {
 	}
 
 	app := http.NewServeMux()
-	app.HandleFunc("GET /{$}", index(o))
+	app.HandleFunc("GET /{$}", index(o, rollen))
 	app.HandleFunc("GET /login", l.formular)
 	app.HandleFunc("POST /login", l.anfordern)
 	app.HandleFunc("GET /auth/{token}", l.bestaetigen)
@@ -91,6 +106,14 @@ func NewHandler(o Options) http.Handler {
 		app.HandleFunc("POST /join/{token}", t.joinAnfragen)
 		app.HandleFunc("POST /anfragen/{id}/freigeben", t.anfrageEntscheiden(t.freigeben))
 		app.HandleFunc("POST /anfragen/{id}/ablehnen", t.anfrageEntscheiden(t.ablehnen))
+
+		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, rollen: rollen, scheme: o.Scheme}
+		app.HandleFunc("GET /admin", a.seite)
+		app.HandleFunc("POST /admin/vereine", a.vereinAnlegen)
+		app.HandleFunc("POST /admin/admins", a.adminHinzufuegen)
+		app.HandleFunc("POST /admin/mannschaften", a.mannschaftAnlegen)
+		app.HandleFunc("POST /admin/mannschaften/{id}/trainer", a.trainerHinzufuegen)
+		app.HandleFunc("POST /admin/mannschaften/{id}/trainer/{konto}/entfernen", a.trainerEntfernen)
 	}
 
 	root := http.NewServeMux()
@@ -103,7 +126,7 @@ func NewHandler(o Options) http.Handler {
 	return http.NewCrossOriginProtection().Handler(root)
 }
 
-func index(o Options) http.HandlerFunc {
+func index(o Options, rl *rollen) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
 			Titel        string
@@ -113,9 +136,16 @@ func index(o Options) http.HandlerFunc {
 			Trainer      []verein.Mannschaft
 			Spieler      []team.Spieler
 			Konto        *auth.Konto
+			Admin        bool
 		}{Version: o.Version}
 		if k, ok := kontoAus(r.Context()); ok {
 			data.Konto = &k
+			admin, err := rl.darfVerwalten(r.Context(), k)
+			if err != nil {
+				interner(w, "adminrolle prüfen", err)
+				return
+			}
+			data.Admin = admin && o.Team != nil
 		}
 
 		if v, ok := vereinAus(r.Context()); ok {
