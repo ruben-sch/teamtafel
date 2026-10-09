@@ -23,6 +23,8 @@ Der Workflow baut das Image nach GHCR, kopiert `deploy/` per SCP auf den Server 
 
 ### Einmalige Einrichtung
 
+Schritte 2 bis 4 erledigt `scripts/setup-github.sh <ssh-private-key> [host] [user]` (braucht `gh` und `openssl`). Die erzeugten Passwörter landen in `.secrets/github.env` und werden bei erneutem Lauf wiederverwendet.
+
 1. **DNS**: A-/AAAA-Einträge für `teamtafel.schwarzpost.de` und `staging.teamtafel.schwarzpost.de` auf die VM.
 2. **Repo-Secrets** (Settings → Secrets and variables → Actions): `HETZNER_HOST`, `HETZNER_USER`, `HETZNER_SSH_KEY`.
 3. **Environments** `staging` und `production` anlegen, je mit den Secrets:

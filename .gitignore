@@ -1,3 +1,8 @@
 /bin/
 .env
 .env.*
+
+# Lokale Zugangsdaten
+/.secrets/
+id_*
+*.pem
