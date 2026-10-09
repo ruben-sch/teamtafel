@@ -1,33 +1,20 @@
 {{template "kopf" .}}
-    <p><a href="/">Zur Startseite</a></p>
-    <h1>{{.Mannschaft.Name}}</h1>
-    <p class="leise">Saison {{.Mannschaft.Saison}}</p>
-
-    <h2>Termine</h2>
-    <p><a href="/m/{{.Mannschaft.ID}}/termine/neu">Termin oder Serie anlegen</a></p>
-    {{- range .Termine}}
-    {{template "terminzeile" .}}
-    {{- else}}
-    <p>Keine kommenden Termine.</p>
-    {{- end}}
-
-    {{- if .Serien}}
-    <h2>Trainingsserien</h2>
-    <ul>
-      {{- range .Serien}}
-      <li>{{wochentag .Wochentag}}, {{.Uhrzeit}} Uhr, {{minuten .Dauer}} Minuten{{if .Ort}}, {{.Ort}}{{end}}
-        <form class="inline" method="post" action="/serien/{{.ID}}/beenden"><button class="leise">beenden</button></form></li>
-      {{- end}}
-    </ul>
-    <p class="leise">Beenden löscht die kommenden Termine der Serie, außer einzeln geänderten.</p>
-    {{- end}}
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <h1>{{.Mannschaft.Name}}</h1>
+      <span class="unter">Saison {{.Mannschaft.Saison}} · {{len .Kader}} im Kader</span>
+    </div>
+  </header>
+  <main>
+    <a class="knopf" href="/m/{{.Mannschaft.ID}}/termine/neu">{{template "icon-plus"}}Termin oder Serie anlegen</a>
 
     {{- if .IstTrainer}}
     <h2>Beitrittsanfragen</h2>
     {{- range .Anfragen}}
     <div class="karte">
-      <strong>{{.Vorname}} {{.Nachname}}</strong>, Jahrgang {{.Jahrgang}}
-      <p class="leise">{{if eq .Art "selbst"}}Spielt selbst{{else}}Angemeldet von{{end}}: {{.Email}}</p>
+      <div><b>{{.Vorname}} {{.Nachname}}</b>, Jahrgang {{.Jahrgang}}
+        <p class="leise">{{if eq .Art "selbst"}}Spielt selbst{{else}}Angemeldet von{{end}}: {{.Email}}</p></div>
       <form method="post" action="/anfragen/{{.ID}}/freigeben">
         {{- if .TrefferSpielerID}}
         <label class="wahl"><input type="checkbox" name="gleich" value="1" checked>
@@ -40,24 +27,51 @@
       </form>
     </div>
     {{- else}}
-    <p>Keine offenen Anfragen.</p>
+    <p class="leise">Keine offenen Anfragen.</p>
     {{- end}}
+    {{- end}}
+
+    <h2>Termine</h2>
+    {{- range .Termine}}
+    {{template "terminzeile" .}}
+    {{- else}}
+    <p class="leise">Keine kommenden Termine.</p>
+    {{- end}}
+
+    {{- if .Serien}}
+    <h2>Trainingsserien</h2>
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Serien}}
+        <li>
+          <span class="name">{{wochentag .Wochentag}}, {{.Uhrzeit}} Uhr<small>{{minuten .Dauer}} Minuten{{if .Ort}} · {{.Ort}}{{end}}</small></span>
+          <form method="post" action="/serien/{{.ID}}/beenden"><button class="zweit">Beenden</button></form>
+        </li>
+        {{- end}}
+      </ul>
+    </div>
+    <p class="leise">Beenden löscht die kommenden Termine der Serie, außer einzeln geänderten.</p>
     {{- end}}
 
     <h2>Kader</h2>
     {{- if .Kader}}
-    <ul>
-      {{- range .Kader}}
-      <li>{{.Nachname}}, {{.Vorname}} <span class="leise">{{.Jahrgang}}</span></li>
-      {{- end}}
-    </ul>
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Kader}}
+        <li><span class="name">{{.Nachname}}, {{.Vorname}}</span><span class="leise">{{.Jahrgang}}</span></li>
+        {{- end}}
+      </ul>
+    </div>
     {{- else}}
-    <p>Noch niemand im Kader.</p>
+    <p class="leise">Noch niemand im Kader.</p>
     {{- end}}
 
     <h2>Team-Link</h2>
-    <p>Mit dem Team-Link melden Eltern ihre Kinder an. Ein neuer Link macht den bisherigen ungültig.</p>
-    <form method="post" action="/m/{{.Mannschaft.ID}}/einladung">
-      <button>Neuen Team-Link erzeugen</button>
-    </form>
+    <div class="karte">
+      <p>Mit dem Team-Link melden sich Spieler oder ihre Eltern an. Ein neuer Link macht den bisherigen ungültig.</p>
+      <form method="post" action="/m/{{.Mannschaft.ID}}/einladung">
+        <button class="zweit">Neuen Team-Link erzeugen</button>
+      </form>
+    </div>
+  </main>
 {{template "fuss" .}}

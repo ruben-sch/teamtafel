@@ -1,51 +1,78 @@
 {{template "kopf" .}}
-    {{- if .Verein}}
-    <h1>{{.Verein.Name}}</h1>
-    {{- if .Mannschaften}}
-    <ul>
-      {{- range .Mannschaften}}
-      <li>{{.Name}} <span class="leise">{{.Saison}}</span></li>
+  <header class="kopf">
+    <div class="kopf-innen leiste">
+      <div class="marke">
+        <span class="verein">{{if .Verein}}{{.Verein.Name}}{{else}}Teamtafel{{end}}</span>
+        {{- if not .Verein}}
+        <span class="unter">Termine und Rückmeldungen fürs Team</span>
+        {{- end}}
+      </div>
+      {{- if .Konto}}
+      <a class="iconknopf" href="/einstellungen" aria-label="Einstellungen">{{template "icon-einstellungen"}}</a>
       {{- end}}
-    </ul>
-    {{- else}}
-    <p>Noch keine Mannschaften angelegt.</p>
-    {{- end}}
-    {{- else}}
-    <h1>Teamtafel</h1>
+    </div>
+  </header>
+  <main>
+    {{- if not .Verein}}
     <p>Hallo! Hier entsteht die Teamverwaltung für unseren Verein.</p>
     {{- end}}
+
     {{- if .Konto}}
-    <h2>Kommende Termine</h2>
+    <h2>Nächste Termine</h2>
     {{- range .Termine}}
     {{template "terminzeile" .}}
     {{- else}}
-    <p>In den nächsten vier Wochen stehen keine Termine an.</p>
+    <p class="leise">In den nächsten vier Wochen stehen keine Termine an.</p>
     {{- end}}
     {{- end}}
+
     {{- if .Trainer}}
     <h2>Meine Mannschaften</h2>
-    <ul>
-      {{- range .Trainer}}
-      <li><a href="/m/{{.ID}}">{{.Name}}</a> <span class="leise">{{.Saison}}</span></li>
-      {{- end}}
-    </ul>
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Trainer}}
+        <li><a class="zeile" href="/m/{{.ID}}"><span class="name">{{.Name}}<small>Saison {{.Saison}}</small></span>{{template "icon-weiter"}}</a></li>
+        {{- end}}
+      </ul>
+    </div>
     {{- end}}
+
     {{- if .Spieler}}
     <h2>Meine Spieler</h2>
-    <ul>
-      {{- range .Spieler}}
-      <li>{{.Vorname}} {{.Nachname}}{{if .Selbst}} <span class="leise">(du)</span>{{end}}</li>
-      {{- end}}
-    </ul>
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Spieler}}
+        <li><span class="name">{{.Vorname}} {{.Nachname}}{{if .Selbst}}<small>du selbst</small>{{end}}</span></li>
+        {{- end}}
+      </ul>
+    </div>
     {{- end}}
-    {{- if .Admin}}
-    <p><a href="/admin">Verwaltung</a></p>
-    {{- end}}
-    {{- if .Konto}}
-    <p>Angemeldet als {{.Konto.Email}}. <a href="/einstellungen">Einstellungen</a>
-      <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form></p>
+
+    {{- if and .Verein (not .Konto)}}
+    <h2>Mannschaften</h2>
+    {{- if .Mannschaften}}
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Mannschaften}}
+        <li><span class="name">{{.Name}}<small>Saison {{.Saison}}</small></span></li>
+        {{- end}}
+      </ul>
+    </div>
     {{- else}}
-    <p><a href="/login">Anmelden</a></p>
+    <p class="leise">Noch keine Mannschaften angelegt.</p>
     {{- end}}
-    <p class="leise">Version {{.Version}}</p>
+    {{- end}}
+
+    {{- if .Konto}}
+    <div class="fuss">
+      <span>Angemeldet als {{.Konto.Email}}</span>
+      <span><a href="/einstellungen">Einstellungen</a>{{if .Admin}} · <a href="/admin">Verwaltung</a>{{end}}</span>
+      <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form>
+      <span>Version {{.Version}}</span>
+    </div>
+    {{- else}}
+    <a class="knopf" href="/login">Anmelden</a>
+    <p class="fuss">Version {{.Version}}</p>
+    {{- end}}
+  </main>
 {{template "fuss" .}}

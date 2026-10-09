@@ -1,5 +1,13 @@
 {{template "kopf" .}}
-    <h1>{{.Titel}}</h1>
-    <p>{{.Text}}</p>
-    <p><a href="{{.LinkZiel}}">{{.LinkText}}</a></p>
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="{{.LinkZiel}}">{{template "icon-zurueck"}}{{.LinkText}}</a>
+      <h1>{{.Titel}}</h1>
+    </div>
+  </header>
+  <main>
+    <div class="karte">
+      <p>{{.Text}}</p>
+    </div>
+  </main>
 {{template "fuss" .}}

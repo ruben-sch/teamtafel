@@ -46,7 +46,7 @@ func TestElternSagenVonDerStartseiteZu(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Fatalf("zusage: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	if body := w.do(http.MethodGet, "/", nil, w.eltern).Body.String(); !strings.Contains(body, "Ben: zugesagt") {
+	if body := w.do(http.MethodGet, "/", nil, w.eltern).Body.String(); !strings.Contains(body, `Ben<small class="status-zu">zugesagt</small>`) {
 		t.Fatalf("status fehlt auf der startseite: %s", body)
 	}
 

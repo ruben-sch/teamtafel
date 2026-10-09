@@ -43,6 +43,7 @@ func (f fakeVereine) AdminHinzufuegen(context.Context, string, string) error {
 }
 func (f fakeVereine) IstAdmin(context.Context, string, string) (bool, error) { return false, nil }
 func (f fakeVereine) Admins(context.Context, string) ([]string, error)       { return nil, nil }
+func (f fakeVereine) FarbeSetzen(context.Context, string, string) error      { return nil }
 
 func testHandler(p Pinger) http.Handler {
 	return NewHandler(Options{

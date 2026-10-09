@@ -218,6 +218,23 @@ func (a *verwaltung) adminHinzufuegen(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
+func (a *verwaltung) farbeSetzen(w http.ResponseWriter, r *http.Request) {
+	v, ok := a.imVerein(w, r)
+	if !ok {
+		return
+	}
+	err := a.vereine.FarbeSetzen(r.Context(), v.ID, r.PostFormValue("farbe"))
+	if errors.Is(err, verein.ErrUngueltigeFarbe) {
+		a.zeigen(w, r, http.StatusBadRequest, "Die Farbe ist zu hell. Weiße Schrift muss darauf gut lesbar bleiben.")
+		return
+	}
+	if err != nil {
+		interner(w, "vereinsfarbe setzen", err)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
 func (a *verwaltung) mannschaftAnlegen(w http.ResponseWriter, r *http.Request) {
 	v, ok := a.imVerein(w, r)
 	if !ok {

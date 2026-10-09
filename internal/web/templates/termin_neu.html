@@ -1,19 +1,24 @@
 {{template "kopf" .}}
-    <p><a href="/m/{{.Mannschaft.ID}}">Zurück zu {{.Mannschaft.Name}}</a></p>
-    <h1>Termin anlegen</h1>
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/m/{{.Mannschaft.ID}}">{{template "icon-zurueck"}}{{.Mannschaft.Name}}</a>
+      <h1>Termin anlegen</h1>
+    </div>
+  </header>
+  <main>
     {{- if .Fehler}}
-    <p class="fehler">{{.Fehler}}</p>
+    <p class="hinweis">{{.Fehler}}</p>
     {{- end}}
 
     <h2>Einzeltermin</h2>
-    <form method="post" action="/m/{{.Mannschaft.ID}}/termine">
+    <form class="karte" method="post" action="/m/{{.Mannschaft.ID}}/termine">
       {{template "terminfelder" .Termin}}
       <button>Termin anlegen</button>
     </form>
 
     <h2>Wöchentliches Training</h2>
     <p class="leise">Die Termine entstehen jeweils acht Wochen im Voraus und lassen sich einzeln ändern oder absagen.</p>
-    <form method="post" action="/m/{{.Mannschaft.ID}}/serien">
+    <form class="karte" method="post" action="/m/{{.Mannschaft.ID}}/serien">
       <div class="zeile">
         <div><label for="wochentag">Wochentag</label>
           <select id="wochentag" name="wochentag">
@@ -37,4 +42,5 @@
       </div>
       <button>Serie anlegen</button>
     </form>
+  </main>
 {{template "fuss" .}}
