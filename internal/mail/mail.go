@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"net/textproto"
 	"strings"
 	"time"
 )
@@ -46,7 +47,8 @@ func (s *SMTP) Senden(ctx context.Context, an, betreff, text string) error {
 	}
 	to, err := mail.ParseAddress(an)
 	if err != nil || strings.ContainsAny(an, "\r\n") {
-		return fmt.Errorf("empfänger %q ungültig", an)
+		// Ohne Adresse: Fehler landen in Logs und in der Job-Tabelle.
+		return errors.New("empfänger ungültig")
 	}
 	msg, err := nachricht(from, to, betreff, text)
 	if err != nil {
@@ -85,7 +87,12 @@ func (s *SMTP) Senden(ctx context.Context, an, betreff, text string) error {
 		return fmt.Errorf("smtp mail from: %w", err)
 	}
 	if err := c.Rcpt(to.Address); err != nil {
-		return fmt.Errorf("smtp rcpt to: %w", err)
+		// Die Serverantwort enthält oft die Adresse; weitergegeben wird nur der Statuscode.
+		var te *textproto.Error
+		if errors.As(err, &te) {
+			return fmt.Errorf("smtp rcpt to abgelehnt: %d", te.Code)
+		}
+		return errors.New("smtp rcpt to fehlgeschlagen")
 	}
 	w, err := c.Data()
 	if err != nil {

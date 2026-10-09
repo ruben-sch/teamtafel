@@ -80,14 +80,15 @@ func run() error {
 	worker := job.NewWorker(pool)
 	worker.Registrieren(nachricht.Art, zustellung.Zustellen)
 	go worker.Laufen(ctx, 10*time.Second)
-	go wartung(ctx, vereine, termine, worker)
+	authStore := auth.NewStore(pool)
+	go wartung(ctx, vereine, termine, authStore, worker)
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: web.NewHandler(web.Options{
 			DB:             pool,
 			Vereine:        vereine,
-			Auth:           auth.NewStore(pool),
+			Auth:           authStore,
 			Team:           team.NewStore(pool),
 			Termine:        termine,
 			Mailer:         mailer,
@@ -151,10 +152,11 @@ func healthcheck() int {
 	return 0
 }
 
-// wartung erinnert alle fünf Minuten an offene Rückmeldungen und hält stündlich die
-// Serientermine acht Wochen im Voraus vor. Mehrere Instanzen stören sich nicht:
-// Fortschreiben ist idempotent, Erinnern markiert jeden Termin in derselben Transaktion.
-func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, worker *job.Worker) {
+// wartung erinnert alle fünf Minuten an offene Rückmeldungen. Stündlich hält sie die
+// Serientermine acht Wochen im Voraus vor und setzt die Löschfristen um (Absagegründe,
+// abgelaufene Logins, erledigte Jobs). Mehrere Instanzen stören sich nicht: alles ist
+// idempotent, Erinnern markiert jeden Termin in derselben Transaktion.
+func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, logins *auth.Store, worker *job.Worker) {
 	for runde := 0; ; runde++ {
 		vs, err := vereine.Alle(ctx)
 		if err != nil {
@@ -165,6 +167,9 @@ func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, 
 				if err := termine.Fortschreiben(ctx, v.ID); err != nil {
 					slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
 				}
+				if err := termine.GruendeLoeschen(ctx, v.ID); err != nil {
+					slog.Error("absagegründe löschen", "verein", v.Slug, "err", err)
+				}
 			}
 			if err := termine.Erinnern(ctx, v.ID); err != nil {
 				slog.Error("erinnern", "verein", v.Slug, "err", err)
@@ -173,6 +178,9 @@ func wartung(ctx context.Context, vereine *verein.Store, termine *termin.Store, 
 		if runde%12 == 0 {
 			if err := worker.Aufraeumen(ctx, 30*24*time.Hour); err != nil {
 				slog.Error("jobs aufräumen", "err", err)
+			}
+			if err := logins.Aufraeumen(ctx); err != nil {
+				slog.Error("logins aufräumen", "err", err)
 			}
 		}
 		select {

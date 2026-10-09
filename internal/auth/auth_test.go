@@ -140,3 +140,39 @@ func TestUngueltigeAdresse(t *testing.T) {
 }
 
 func normalisiert(s string) string { return auth.NormalisiereEmail(s) }
+
+func TestAufraeumenLoeschtAbgelaufeneTokensUndSessions(t *testing.T) {
+	pool := dbtest.AppPool(t)
+	store := auth.NewStore(pool)
+	ctx := context.Background()
+	jetzt := time.Now()
+	store.Now = func() time.Time { return jetzt }
+
+	altLink, _ := store.LinkAnfordern(ctx, email())
+	frischLink, _ := store.LinkAnfordern(ctx, email())
+	sess, _, _ := store.Einloesen(ctx, frischLink)
+
+	// Zwei Tage später: der unbenutzte Link ist lange abgelaufen, die Session noch gültig.
+	jetzt = jetzt.Add(48 * time.Hour)
+	if err := store.Aufraeumen(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var links int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM login_token WHERE token_hash = sha256($1::bytea)`, []byte(altLink)).Scan(&links)
+	if links != 0 {
+		t.Error("abgelaufener link nicht gelöscht")
+	}
+	if _, err := store.Sitzung(ctx, sess); err != nil {
+		t.Fatalf("gültige session gelöscht: %v", err)
+	}
+
+	jetzt = jetzt.Add(auth.SessionGueltigkeit + time.Hour)
+	if err := store.Aufraeumen(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var sessions int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM session WHERE token_hash = sha256($1::bytea)`, []byte(sess)).Scan(&sessions)
+	if sessions != 0 {
+		t.Error("abgelaufene session nicht gelöscht")
+	}
+}

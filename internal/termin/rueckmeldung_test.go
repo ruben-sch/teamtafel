@@ -189,3 +189,28 @@ func TestSerieBeendenBehaeltTermineMitRueckmeldung(t *testing.T) {
 		t.Fatalf("nach beenden: %+v", rest)
 	}
 }
+
+func TestAbsagegruendeNach90TagenGeloescht(t *testing.T) {
+	k := mitKader(t)
+	anlegen := func(vor time.Duration) termin.Termin {
+		b := k.jetzt.Add(-vor)
+		tm, err := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, "", termin.Daten{Typ: termin.TypTraining, Beginn: b, Ende: b.Add(time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, k.kind, k.trainer.ID, termin.Ab, termin.GrundKrank, true); err != nil {
+			t.Fatal(err)
+		}
+		return tm
+	}
+	alt, neu := anlegen(91*24*time.Hour), anlegen(89*24*time.Hour)
+	if err := k.store.GruendeLoeschen(k.ctx, k.verein.ID); err != nil {
+		t.Fatal(err)
+	}
+	if r := status(t, k, alt.ID, k.kind); r.Status != termin.Ab || r.Grund != "" {
+		t.Errorf("alt: %+v", r)
+	}
+	if r := status(t, k, neu.ID, k.kind); r.Grund != termin.GrundKrank {
+		t.Errorf("neu: %+v", r)
+	}
+}

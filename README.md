@@ -36,6 +36,14 @@ Per Web Push an alle Geräte, die ein Konto unter „Einstellungen“ freigescha
 
 Neue Serientermine und vergangene Termine lösen nichts aus. Inhalte nennen nur Vornamen und nie den Absagegrund. Auf Staging begrenzt die Environment-Variable `MAIL_ALLOWLIST` (Adressen durch Komma getrennt) Push und E-Mail, damit keine echten Eltern Post bekommen; Login-Mails sind davon ausgenommen.
 
+### Löschfristen
+
+Die Wartung in der App setzt sie stündlich um:
+- Absagegründe werden 90 Tage nach Terminbeginn gelöscht, die Absage selbst bleibt.
+- Abgelaufene Login-Links und Sessions werden gelöscht, erledigte Benachrichtigungs-Jobs nach 30 Tagen.
+- Abgelehnte Beitrittsanfragen werden sofort gelöscht.
+- Logs und gespeicherte Fehlermeldungen enthalten nur IDs, keine E-Mail-Adressen oder Namen.
+
 Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.
 
 Lokal: `http://<slug>.localhost:8080` (Browser lösen `*.localhost` selbst auf).
