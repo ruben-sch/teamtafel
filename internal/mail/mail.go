@@ -24,7 +24,7 @@ type Config struct {
 	Port     string
 	User     string
 	Password string
-	// From, z. B. "Teamtafel <noreply@teamtafel.schwarzpost.de>".
+	// From, z. B. "Teamtafel <teamtafel@schwarzpost.de>".
 	From string
 }
 
