@@ -22,7 +22,7 @@ type Config struct {
 	Scheme string
 	// SMTP-Zugang für den Mailversand.
 	SMTPHost, SMTPPort, SMTPUser, SMTPPassword string
-	// MailFrom ist der Absender, z. B. "Teamtafel <noreply@teamtafel.schwarzpost.de>".
+	// MailFrom ist der Absender, z. B. "Teamtafel <teamtafel@schwarzpost.de>".
 	MailFrom string
 	// Superadmins sind die Plattform-Admins (SUPERADMIN_EMAILS, durch Komma oder Leerzeichen getrennt).
 	Superadmins []string

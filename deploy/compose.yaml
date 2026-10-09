@@ -37,7 +37,7 @@ services:
       SMTP_PORT: "587"
       SMTP_USER: resend
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-Teamtafel <noreply@teamtafel.schwarzpost.de>}
+      MAIL_FROM: ${MAIL_FROM:-Teamtafel <teamtafel@schwarzpost.de>}
       # Plattform-Admins (Verwaltung unter APP_HOST/admin).
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
     networks:
