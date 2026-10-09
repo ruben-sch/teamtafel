@@ -76,7 +76,9 @@ func setup(ctx context.Context, ownerURL string) error {
 
 	// Entspricht deploy/initdb/01-app-role.sh, aber idempotent und nach den
 	// Migrationen, daher Rechte auf bestehende Tabellen statt Default-Privileges.
+	// Der Lock verhindert "tuple concurrently updated", wenn Pakete parallel starten.
 	_, err = owner.Exec(ctx, `
+SELECT pg_advisory_xact_lock(7461);
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '`+appRole+`') THEN
