@@ -1,0 +1,125 @@
+name: Deploy
+
+# Push auf main -> Staging, veröffentlichtes Release -> Produktion.
+# Repo-Secrets: HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY
+# Secrets je GitHub-Environment (staging, production):
+#   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      is_release:
+        description: Produktions-Release
+        required: false
+        type: boolean
+        default: false
+      tag:
+        description: Release-Tag (z. B. v1.2.0)
+        required: false
+        type: string
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  IS_RELEASE: ${{ github.event_name == 'release' || inputs.is_release == true }}
+  RELEASE_TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+
+concurrency:
+  group: deploy-${{ github.event_name == 'release' || inputs.is_release == true }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }},enable=${{ env.RELEASE_TAG != '' }}
+            type=raw,value=latest,enable=${{ env.IS_RELEASE == 'true' }}
+            type=raw,value=staging,enable=${{ env.IS_RELEASE != 'true' }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ env.RELEASE_TAG || github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'release' || inputs.is_release == true) && 'production' || 'staging' }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Deploy-Dateien auf den Server kopieren
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          source: "deploy/compose.yaml,deploy/compose.staging.yaml,deploy/initdb"
+          target: "~/teamtafel/"
+          strip_components: 1
+
+      - name: Container starten
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_ENV: ${{ env.IS_RELEASE == 'true' && 'production' || 'staging' }}
+          APP_HOST: ${{ secrets.APP_HOST }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: DEPLOY_ENV,APP_HOST,POSTGRES_PASSWORD,APP_DB_PASSWORD,GHCR_TOKEN,GHCR_USER
+          script: |
+            set -eu
+            cd ~/teamtafel
+
+            if [ "$DEPLOY_ENV" = production ]; then
+              STACK=teamtafel; IMAGE_TAG=latest; FILES="-f compose.yaml"
+            else
+              STACK=teamtafel-staging; IMAGE_TAG=staging; FILES="-f compose.yaml -f compose.staging.yaml"
+            fi
+
+            umask 077
+            cat > ".env.$DEPLOY_ENV" <<EOF
+            STACK=$STACK
+            IMAGE_TAG=$IMAGE_TAG
+            APP_HOST=$APP_HOST
+            POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+            APP_DB_PASSWORD=$APP_DB_PASSWORD
+            EOF
+
+            docker network inspect proxy >/dev/null 2>&1 || docker network create proxy
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            docker compose -p "$STACK" --env-file ".env.$DEPLOY_ENV" $FILES pull
+            docker compose -p "$STACK" --env-file ".env.$DEPLOY_ENV" $FILES up -d --wait

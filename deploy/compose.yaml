@@ -1,0 +1,55 @@
+# Server-Deployment. Eine Datei für Staging und Produktion; die Umgebung
+# kommt aus der .env-Datei, das Compose-Projekt heißt wie STACK.
+# Passwörter nur aus [0-9a-f] (openssl rand -hex 24), weil sie in URLs landen.
+#   docker compose -p teamtafel         --env-file .env.production -f compose.yaml up -d
+#   docker compose -p teamtafel-staging --env-file .env.staging -f compose.yaml -f compose.staging.yaml up -d
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: teamtafel
+      POSTGRES_USER: teamtafel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamtafel -d teamtafel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    image: ghcr.io/ruben-sch/teamtafel:${IMAGE_TAG:?}
+    environment:
+      DATABASE_URL: postgres://teamtafel_app:${APP_DB_PASSWORD}@db:5432/teamtafel?sslmode=disable
+      MIGRATE_DATABASE_URL: postgres://teamtafel:${POSTGRES_PASSWORD}@db:5432/teamtafel?sslmode=disable
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK:?}.rule=Host(`${APP_HOST:?}`)"
+      - "traefik.http.routers.${STACK}.tls=true"
+      - "traefik.http.routers.${STACK}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${STACK}.loadbalancer.server.port=8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    logging: *logging
+
+volumes:
+  db_data:
+
+networks:
+  proxy:
+    name: proxy
+    external: true
