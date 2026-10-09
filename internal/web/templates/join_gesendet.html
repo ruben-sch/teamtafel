@@ -1,6 +1,14 @@
 {{template "kopf" .}}
-    <h1>Anfrage gesendet</h1>
-    <p>{{.Anfrage.Vorname}} {{.Anfrage.Nachname}} ist für {{.Mannschaft.Name}} angemeldet.
-      Der Trainer muss die Anfrage noch freigeben. Danach erscheint {{.Anfrage.Vorname}} auf deiner Startseite.</p>
-    <p><a href="/">Zur Startseite</a></p>
+  <header class="kopf">
+    <div class="kopf-innen">
+      <h1>Anfrage gesendet</h1>
+    </div>
+  </header>
+  <main>
+    <div class="karte">
+      <p>{{.Anfrage.Vorname}} {{.Anfrage.Nachname}} ist für {{.Mannschaft.Name}} angemeldet.
+        Der Trainer muss die Anfrage noch freigeben. Danach erscheint {{.Anfrage.Vorname}} auf deiner Startseite.</p>
+    </div>
+    <a class="knopf" href="/">Zur Startseite</a>
+  </main>
 {{template "fuss" .}}

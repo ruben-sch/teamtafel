@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,11 +31,17 @@ var (
 	ErrMannschaftVorhanden = errors.New("mannschaft gibt es in der saison schon")
 	// ErrUngueltigeSaison: Saisonname nicht im Format JJJJ/JJ.
 	ErrUngueltigeSaison = errors.New("saison muss das format JJJJ/JJ haben, z. B. 2026/27")
+	// ErrUngueltigeFarbe: keine Hex-Farbe oder zu hell für weiße Schrift.
+	ErrUngueltigeFarbe = errors.New("farbe muss #RRGGBB sein und genug kontrast zu weiß haben")
 )
+
+// StandardFarbe ist die Vereinsfarbe, bis der Vereinsadmin eine andere setzt.
+const StandardFarbe = "#1F3A5F"
 
 var (
 	slugPattern   = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	saisonPattern = regexp.MustCompile(`^(\d{4})/(\d{2})$`)
+	farbPattern   = regexp.MustCompile(`^#[0-9A-F]{6}$`)
 	// Reserviert, weil sie als Subdomain mit Umgebungen oder Diensten kollidieren.
 	reserviert = map[string]bool{"www": true, "staging": true, "api": true, "admin": true, "plattform": true, "mail": true}
 )
@@ -44,6 +51,8 @@ type Verein struct {
 	ID   string
 	Slug string
 	Name string
+	// Farbe ist die Akzentfarbe als #RRGGBB.
+	Farbe string
 }
 
 // Mannschaft gehört zu einer Saison eines Vereins.
@@ -74,7 +83,7 @@ func (s *Store) Anlegen(ctx context.Context, slug, name string) (Verein, error) 
 	}
 	v := Verein{Slug: slug, Name: name}
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO verein (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING id::text`, slug, name).Scan(&v.ID)
+		`INSERT INTO verein (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING id::text, farbe`, slug, name).Scan(&v.ID, &v.Farbe)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Verein{}, fmt.Errorf("%w: %q", ErrSlugVergeben, slug)
 	}
@@ -87,7 +96,7 @@ func (s *Store) Anlegen(ctx context.Context, slug, name string) (Verein, error) 
 // BySlug sucht einen Verein anhand seines Slugs.
 func (s *Store) BySlug(ctx context.Context, slug string) (Verein, error) {
 	v := Verein{Slug: slug}
-	err := s.pool.QueryRow(ctx, `SELECT id::text, name FROM verein WHERE slug = $1`, slug).Scan(&v.ID, &v.Name)
+	err := s.pool.QueryRow(ctx, `SELECT id::text, name, farbe FROM verein WHERE slug = $1`, slug).Scan(&v.ID, &v.Name, &v.Farbe)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Verein{}, ErrNotFound
 	}
@@ -99,14 +108,45 @@ func (s *Store) BySlug(ctx context.Context, slug string) (Verein, error) {
 
 // Alle listet alle Vereine, für die Plattform-Verwaltung.
 func (s *Store) Alle(ctx context.Context) ([]Verein, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id::text, slug, name FROM verein ORDER BY name`)
+	rows, err := s.pool.Query(ctx, `SELECT id::text, slug, name, farbe FROM verein ORDER BY name`)
 	if err != nil {
 		return nil, fmt.Errorf("vereine laden: %w", err)
 	}
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (Verein, error) {
 		var v Verein
-		return v, r.Scan(&v.ID, &v.Slug, &v.Name)
+		return v, r.Scan(&v.ID, &v.Slug, &v.Name, &v.Farbe)
 	})
+}
+
+// FarbeSetzen ändert die Vereinsfarbe. Weiße Schrift auf der Farbe muss
+// mindestens 4,5:1 Kontrast haben (WCAG AA), sonst ist die Kopfleiste unlesbar.
+func (s *Store) FarbeSetzen(ctx context.Context, vereinID, farbe string) error {
+	farbe = strings.ToUpper(strings.TrimSpace(farbe))
+	if !farbPattern.MatchString(farbe) || kontrastZuWeiss(farbe) < 4.5 {
+		return fmt.Errorf("%w: %q", ErrUngueltigeFarbe, farbe)
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE verein SET farbe = $2 WHERE id = $1`, vereinID, farbe)
+	if err != nil {
+		return fmt.Errorf("vereinsfarbe setzen: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// kontrastZuWeiss berechnet das WCAG-Kontrastverhältnis von Weiß zu #RRGGBB.
+func kontrastZuWeiss(hex string) float64 {
+	kanal := func(i int) float64 {
+		n, _ := strconv.ParseUint(hex[i:i+2], 16, 8)
+		c := float64(n) / 255
+		if c <= 0.04045 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+	l := 0.2126*kanal(1) + 0.7152*kanal(3) + 0.0722*kanal(5)
+	return 1.05 / (l + 0.05)
 }
 
 // AdminHinzufuegen macht ein Konto zum Admin des Vereins.

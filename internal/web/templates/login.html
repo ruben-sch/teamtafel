@@ -1,7 +1,13 @@
 {{template "kopf" .}}
-    <h1>Anmelden</h1>
-    <p>Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du dich ohne Passwort anmeldest.</p>
-    <form method="post" action="/login">
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <h1>Anmelden</h1>
+    </div>
+  </header>
+  <main>
+    <form class="karte" method="post" action="/login">
+      <p>Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du dich ohne Passwort anmeldest.</p>
       <input type="hidden" name="weiter" value="{{.Weiter}}">
       <label for="email">E-Mail-Adresse</label>
       <input type="email" id="email" name="email" value="{{.Email}}" autocomplete="email" required autofocus>
@@ -10,4 +16,5 @@
       {{- end}}
       <button>Link schicken</button>
     </form>
+  </main>
 {{template "fuss" .}}

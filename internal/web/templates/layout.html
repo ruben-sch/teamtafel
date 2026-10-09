@@ -7,84 +7,73 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/static/icon-192.png">
   <link rel="apple-touch-icon" href="/static/icon-180.png">
-  <meta name="theme-color" content="#1f6feb">
+  <meta name="theme-color" content="#1F3A5F">
+  <link rel="preload" href="/static/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/verein.css">
   <script src="/static/app.js" defer></script>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; background: #f6f7f9; color: #1d2330; }
-    main { max-width: 32rem; margin: 0 auto; }
-    h1 { margin: 0 0 .5rem; }
-    .leise { color: #5b6475; font-size: .875rem; }
-    .fehler { color: #b42318; }
-    input[type=email], input[type=text], input[type=number] { width: 100%; box-sizing: border-box; padding: .6rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
-    button { margin-top: .75rem; padding: .6rem 1rem; font-size: 1rem; border: 0; border-radius: .4rem; background: #1f6feb; color: #fff; }
-    button.leise { background: none; color: inherit; padding: 0; text-decoration: underline; }
-    form.inline { display: inline; }
-    label { display: block; margin-top: .75rem; }
-    label.wahl { display: flex; gap: .5rem; align-items: center; }
-    .karte { background: rgba(127,127,127,.08); border-radius: .5rem; padding: .75rem 1rem; margin: .75rem 0; }
-    button.zweit { background: #5b6475; }
-    .qr { width: 16rem; max-width: 100%; display: block; margin: 1rem 0; }
-    .termin { padding: .6rem .8rem; margin: .4rem 0; border-radius: .5rem; background: rgba(127,127,127,.08); }
-    .termin > a { display: block; color: inherit; text-decoration: none; }
-    .termin .wann { display: block; font-weight: 600; }
-    .termin.abgesagt .was, .termin.abgesagt .wann { text-decoration: line-through; }
-    .termin .zaehler { margin: .25rem 0 0; }
-    .antwort { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .4rem; }
-    .antwort form { display: flex; gap: .4rem; }
-    .antwort button { margin: 0; padding: .55rem 1.1rem; background: transparent; color: inherit; border: 2px solid #c5cad3; }
-    .antwort button.zu.aktiv { background: #1a7f37; border-color: #1a7f37; color: #fff; }
-    .antwort button.ab.aktiv { background: #b42318; border-color: #b42318; color: #fff; }
-    ul.team { padding-left: 1.2rem; }
-    ul.team li { margin: .3rem 0; }
-    ul.team button.leise { margin: 0 0 0 .5rem; }
-    .antwort select { flex: 1; min-width: 0; }
-    .status-zu { color: #1a7f37; }
-    .status-ab { color: #b42318; }
-    input[type=date], input[type=time], input[type=datetime-local], select { padding: .5rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
-    .zeile { display: flex; gap: .75rem; flex-wrap: wrap; }
-    .zeile > div { flex: 1 1 7rem; }
-    .zeile input, .zeile select { width: 100%; box-sizing: border-box; }
-    details summary { cursor: pointer; font-weight: 600; margin: 1rem 0 .5rem; }
-    .link { word-break: break-all; font-family: ui-monospace, monospace; font-size: .875rem; }
-    @media (prefers-color-scheme: dark) {
-      body { background: #12151b; color: #e6e9ef; }
-      .leise { color: #9aa3b5; }
-      input[type=email], input[type=text], input[type=number], input[type=date], input[type=time], input[type=datetime-local], select { background: #1b1f27; color: inherit; border-color: #39404d; }
-    }
-  </style>
 </head>
 <body>
-  <main>
 {{end}}
 
 {{define "terminzeile"}}
-    <div class="termin{{if .Abgesagt}} abgesagt{{end}}">
-      <a href="/t/{{.ID}}">
-        <span class="wann">{{datum .Beginn}}, {{uhrzeit .Beginn}}</span>
-        <span class="was">{{typName .Typ}}{{if .Titel}} {{.Titel}}{{end}} <span class="leise">{{.Mannschaft}}{{if .Ort}} · {{.Ort}}{{end}}</span></span>
-        {{- if .Abgesagt}} <strong class="fehler">Abgesagt</strong>{{end}}
+    <article class="karte dicht termin {{.Typ}}{{if .Abgesagt}} abgesagt{{end}}">
+      <a class="termin-kopf" href="/t/{{.ID}}">
+        <span class="datum"><span>{{wtKurz .Beginn}}</span><b>{{tagZahl .Beginn}}</b><span>{{monatKurz .Beginn}}</span></span>
+        <span class="info">
+          {{- if .Abgesagt}}
+          <span class="chip abgesagt">Abgesagt</span>
+          {{- else}}
+          <span class="chip {{.Typ}}">{{typName .Typ}}</span>
+          {{- end}}
+          <span class="titel">{{if .Titel}}{{.Titel}}{{else}}{{uhrzeit .Beginn}} bis {{uhrzeit .Ende}} Uhr{{end}}</span>
+          <span class="meta">{{if .Titel}}{{uhrzeit .Beginn}} bis {{uhrzeit .Ende}} · {{end}}{{.Mannschaft}}{{if .Ort}} · {{.Ort}}{{end}}</span>
+        </span>
       </a>
       {{- if and .Zaehler (not .Abgesagt)}}
-      <p class="leise zaehler">{{.Zu}} zu · {{.Ab}} ab · {{.Offen}} offen</p>
+      {{template "zaehler" .}}
       {{- end}}
       {{- $k := .}}
+      {{- if not .Abgesagt}}
       {{- range .Meine}}
       <div class="antwort">
-        <span>{{.Vorname}}: {{statusText .Status}}</span>
+        <span class="kind">{{.Vorname}}<small class="status-{{.Status}}">{{statusText .Status}}</small></span>
         {{- if $k.Moeglich}}
-        <form method="post" action="/t/{{$k.ID}}/rueckmeldung/{{.SpielerID}}">
+        <form class="wahl" method="post" action="/t/{{$k.ID}}/rueckmeldung/{{.SpielerID}}">
           <input type="hidden" name="zurueck" value="/">
-          <button name="status" value="zu" class="zu{{if eq .Status "zu"}} aktiv{{end}}">Zu</button>
-          <button name="status" value="ab" class="ab{{if eq .Status "ab"}} aktiv{{end}}">Ab</button>
+          {{template "zuab" .Status}}
         </form>
         {{- end}}
       </div>
       {{- end}}
-    </div>
+      {{- end}}
+    </article>
 {{end}}
 
+{{define "zuab"}}
+          <button name="status" value="zu" class="zu{{if eq . "zu"}} aktiv{{end}}"{{if eq . "zu"}} aria-pressed="true"{{end}}>{{template "icon-zu"}}Zu</button>
+          <button name="status" value="ab" class="ab{{if eq . "ab"}} aktiv{{end}}"{{if eq . "ab"}} aria-pressed="true"{{end}}>{{template "icon-ab"}}Ab</button>
+{{- end}}
+
+{{define "zaehler"}}
+      <div class="zaehler">
+        <div class="balken" aria-hidden="true"><span class="z" style="width: {{anteil .Zu .Zu .Ab .Offen}}%"></span><span class="a" style="width: {{anteil .Ab .Zu .Ab .Offen}}%"></span></div>
+        <p>{{.Zu}} zu · {{.Ab}} ab · {{.Offen}} offen</p>
+      </div>
+{{- end}}
+
+{{define "icon-zu"}}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>{{end}}
+{{define "icon-ab"}}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>{{end}}
+{{define "icon-uhr"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{end}}
+{{define "icon-treff"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>{{end}}
+{{define "icon-ort"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>{{end}}
+{{define "icon-frist"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>{{end}}
+{{define "icon-zurueck"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>{{end}}
+{{define "icon-weiter"}}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>{{end}}
+{{define "icon-einstellungen"}}<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>{{end}}
+{{define "icon-plus"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{end}}
+
 {{define "fuss"}}
-  </main>
 </body>
 </html>
 {{end}}

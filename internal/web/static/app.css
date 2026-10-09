@@ -1,0 +1,181 @@
+/* Teamtafel – Grundlayout. Die Vereinsfarbe kommt aus /verein.css (--verein). */
+
+@font-face { font-family: "Barlow"; font-weight: 400; font-style: normal; font-display: swap; src: url("/static/fonts/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-style: normal; font-display: swap; src: url("/static/fonts/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; font-style: normal; font-display: swap; src: url("/static/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2"); }
+
+:root {
+  --verein: #1F3A5F;
+  --grund: #F4F5F7;
+  --flaeche: #FFFFFF;
+  --tinte: #171C24;
+  --tinte-2: #3C4452;
+  --leise: #586170;
+  --linie: #C8CDD5;
+  --trenner: #ECEEF2;
+  --feld: #E9EBEF;
+  --zu: #1A7F37;
+  --ab: #B42318;
+  --zu-text: #1A7F37;
+  --ab-text: #B42318;
+  --ab-linie: #E7B5B0;
+  --schatten: 0 1px 2px rgba(23, 28, 36, .06), 0 0 0 1px rgba(23, 28, 36, .07);
+  --chip-training: #E3ECF7; --chip-training-text: #1D4E89;
+  --chip-spiel: #FCE9D6; --chip-spiel-text: #8A3B0B;
+  --chip-sonstiges: #ECE8F5; --chip-sonstiges-text: #4B3B7A;
+  --chip-abgesagt: #FBE4E2; --chip-abgesagt-text: #9B1C12;
+  --schrift: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --schrift-titel: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #12151B;
+    --flaeche: #1B1F27;
+    --tinte: #E6E9EF;
+    --tinte-2: #C3C9D4;
+    --leise: #9AA3B5;
+    --linie: #3A414E;
+    --trenner: #262B35;
+    --feld: #262B35;
+    --zu-text: #4AC26B;
+    --ab-text: #F47067;
+    --ab-linie: #6B2A26;
+    --schatten: 0 0 0 1px rgba(255, 255, 255, .06);
+    --chip-training: #1E2F47; --chip-training-text: #A9C7EE;
+    --chip-spiel: #3D2A1A; --chip-spiel-text: #F2BC8D;
+    --chip-sonstiges: #2C2640; --chip-sonstiges-text: #C9BCEB;
+    --chip-abgesagt: #3D1D1B; --chip-abgesagt-text: #F4A39C;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--grund); color: var(--tinte); font: 400 1rem/1.45 var(--schrift); -webkit-text-size-adjust: 100%; }
+a { color: var(--tinte); text-underline-offset: .15em; }
+p { margin: 0; }
+[hidden] { display: none !important; }
+
+/* Kopfleiste in Vereinsfarbe */
+.kopf { background: var(--verein); color: #fff; }
+.kopf-innen { max-width: 34rem; margin: 0 auto; padding: .5rem 1rem 1.4rem; display: flex; flex-direction: column; gap: .6rem; }
+.kopf-innen.leiste { flex-direction: row; align-items: center; justify-content: space-between; gap: .75rem; padding-top: 1rem; padding-bottom: 1.1rem; }
+.kopf a { color: #fff; }
+.kopf h1, .marke .verein { margin: 0; font: 700 2.125rem/1.05 var(--schrift-titel); text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
+.marke { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.marke .verein { font-size: 1.625rem; line-height: 1; }
+.kopf .unter { font-size: .9375rem; opacity: .85; }
+.zurueck { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; font-weight: 600; font-size: .9375rem; text-decoration: none; opacity: .9; align-self: flex-start; }
+.iconknopf { flex: 0 0 auto; width: 2.75rem; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; border-radius: .75rem; background: rgba(255, 255, 255, .14); color: #fff; }
+
+/* Inhalt */
+main { max-width: 34rem; margin: 0 auto; padding: 1rem 1rem 2rem; display: flex; flex-direction: column; gap: .75rem; }
+main > h2, .abschnitt { margin: .75rem 0 0; font: 700 .9375rem/1.2 var(--schrift-titel); letter-spacing: .08em; text-transform: uppercase; color: var(--leise); }
+.leise { color: var(--leise); font-size: .875rem; }
+.fehler { color: var(--ab-text); font-weight: 600; }
+.hinweis { padding: .75rem 1rem; border-radius: .75rem; background: var(--chip-abgesagt); color: var(--chip-abgesagt-text); }
+
+.karte { background: var(--flaeche); border-radius: 1rem; box-shadow: var(--schatten); padding: .875rem 1rem; display: flex; flex-direction: column; gap: .6rem; }
+.karte.dicht { padding: 0; gap: 0; }
+
+/* Termin-Karte */
+.termin-kopf { display: flex; gap: .875rem; padding: .875rem; color: inherit; text-decoration: none; }
+.datum { flex: 0 0 3.5rem; height: 4rem; border-radius: .75rem; background: var(--feld); display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--schrift-titel); font-weight: 700; line-height: 1; }
+.datum span { font-size: .8125rem; letter-spacing: .06em; }
+.datum b { font-size: 1.75rem; }
+.termin.spiel .datum { background: var(--verein); color: #fff; }
+.info { min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.titel { font-weight: 600; font-size: 1.125rem; line-height: 1.25; }
+.meta { font-size: .875rem; color: var(--leise); }
+.termin.abgesagt .datum, .termin.abgesagt .titel, .termin.abgesagt .meta { opacity: .5; }
+.termin.abgesagt .titel { text-decoration: line-through; }
+.termin .zaehler { padding: 0 .875rem .875rem; }
+
+.chip { align-self: flex-start; font: 600 .75rem/1 var(--schrift); letter-spacing: .05em; text-transform: uppercase; padding: .3rem .5rem; border-radius: 999px; }
+.chip.training { background: var(--chip-training); color: var(--chip-training-text); }
+.chip.spiel { background: var(--chip-spiel); color: var(--chip-spiel-text); }
+.chip.sonstiges { background: var(--chip-sonstiges); color: var(--chip-sonstiges-text); }
+.chip.abgesagt { background: var(--chip-abgesagt); color: var(--chip-abgesagt-text); }
+.chip.hell { background: rgba(255, 255, 255, .18); color: #fff; }
+
+/* Rückmeldung Zu/Ab */
+.antwort { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .875rem .875rem; border-top: 1px solid var(--trenner); }
+.antwort + .antwort { border-top: 0; padding-top: 0; }
+.kind { font-weight: 600; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.kind small, .status-offen { font-size: .8125rem; font-weight: 400; color: var(--leise); }
+.status-zu { color: var(--zu-text); font-weight: 600; }
+.status-ab { color: var(--ab-text); font-weight: 600; }
+.kopfzeile { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; }
+.kopfzeile b { font-size: 1.125rem; }
+.wahl { display: flex; gap: .4rem; }
+.wahl.breit button { flex: 1; }
+button.zu, button.ab { margin: 0; min-width: 4.75rem; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: 0 .875rem; border-radius: .75rem; border: 1.5px solid var(--linie); background: var(--flaeche); color: var(--tinte); font: 600 1rem var(--schrift); }
+button.zu.aktiv { background: var(--zu); border-color: var(--zu); color: #fff; }
+button.ab.aktiv { background: var(--ab); border-color: var(--ab); color: #fff; }
+
+/* Zähler */
+.zaehler { display: flex; flex-direction: column; gap: .5rem; }
+.balken { display: flex; height: .5rem; border-radius: 999px; overflow: hidden; background: var(--feld); }
+.balken .z { background: var(--zu); }
+.balken .a { background: var(--ab); }
+.zaehler p { font-size: .875rem; color: var(--leise); }
+
+/* Fakten mit Symbol */
+.fakten { list-style: none; margin: 0; padding: .25rem 1rem; }
+.fakten li { display: flex; gap: .75rem; align-items: flex-start; padding: .75rem 0; border-bottom: 1px solid var(--trenner); }
+.fakten li:last-child { border-bottom: 0; }
+.fakten svg { flex: 0 0 1.25rem; margin-top: .1rem; color: var(--leise); }
+.fakten b { display: block; font-weight: 600; }
+.fakten span { font-size: .875rem; color: var(--leise); }
+
+/* Listen in Karten */
+.liste { list-style: none; margin: 0; padding: 0 .875rem; }
+.liste li { display: flex; align-items: center; gap: .6rem; min-height: 3.25rem; padding: .35rem 0; border-bottom: 1px solid var(--trenner); }
+.liste li:last-child { border-bottom: 0; }
+.karte:not(.dicht) > .liste { padding: 0; }
+.liste .name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.liste .name small { font-size: .8125rem; color: var(--leise); font-weight: 400; }
+.liste a.zeile { flex: 1; display: flex; align-items: center; gap: .6rem; color: inherit; text-decoration: none; min-height: 2.75rem; }
+.liste form { display: flex; gap: .4rem; margin: 0; }
+.punkt { flex: 0 0 1.75rem; width: 1.75rem; height: 1.75rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+.punkt.zu { background: var(--zu); color: #fff; }
+.punkt.ab { background: var(--ab); color: #fff; }
+.punkt.offen { border: 2px dashed var(--linie); }
+button.klein { margin: 0; width: 2.75rem; height: 2.75rem; padding: 0; border-radius: .6rem; border: 1.5px solid var(--trenner); background: var(--flaeche); color: var(--leise); display: inline-flex; align-items: center; justify-content: center; }
+
+/* Knöpfe */
+button, .knopf { margin: 0; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 3rem; padding: 0 1.125rem; border-radius: .75rem; border: 0; background: var(--verein); color: #fff; font: 600 1rem var(--schrift); text-decoration: none; cursor: pointer; }
+.knopf { align-self: stretch; }
+button.zweit, .knopf.zweit { background: var(--flaeche); color: var(--tinte); border: 1.5px solid var(--linie); }
+button.gefahr { background: transparent; color: var(--ab-text); border: 1.5px solid var(--ab-linie); }
+button.voll { width: 100%; }
+button.leise { min-height: 0; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: .15em; }
+form.inline { display: inline; }
+.knopfreihe { display: flex; gap: .5rem; flex-wrap: wrap; }
+.knopfreihe > * { flex: 1 1 8rem; }
+
+/* Formulare */
+form { display: flex; flex-direction: column; gap: .6rem; }
+form.wahl { flex-direction: row; }
+label { font-weight: 600; font-size: .875rem; }
+label .leise { font-weight: 400; }
+label.kopfzeile { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; }
+.kopfzeile b { font-size: 1.125rem; }
+.wahl { display: flex; gap: .6rem; align-items: center; font-size: 1rem; font-weight: 400; min-height: 2.75rem; }
+input[type=email], input[type=text], input[type=number], input[type=date], input[type=time], input[type=datetime-local], select {
+  width: 100%; min-height: 3rem; padding: 0 .875rem; border: 1.5px solid var(--linie); border-radius: .75rem;
+  background: var(--flaeche); color: var(--tinte); font: 1rem var(--schrift);
+}
+input[type=color] { width: 4rem; height: 3rem; padding: .25rem; border: 1.5px solid var(--linie); border-radius: .75rem; background: var(--flaeche); }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--verein); outline-offset: 2px; }
+.kopf a:focus-visible { outline-color: #fff; }
+.zeile { display: flex; gap: .75rem; flex-wrap: wrap; }
+.zeile.mitte { align-items: center; }
+.zeile > div { flex: 1 1 7rem; display: flex; flex-direction: column; gap: .35rem; }
+details.karte summary { cursor: pointer; font-weight: 600; min-height: 2rem; line-height: 2rem; }
+
+/* Sonstiges */
+.fuss { display: flex; flex-direction: column; gap: .35rem; padding-top: .75rem; font-size: .875rem; color: var(--leise); }
+.fuss a, .fuss button.leise { color: var(--tinte); font-weight: 600; }
+.qr { width: 16rem; max-width: 100%; display: block; margin: .5rem 0; background: #fff; padding: .5rem; border-radius: .5rem; }
+.link { word-break: break-all; font-family: ui-monospace, monospace; font-size: .875rem; }

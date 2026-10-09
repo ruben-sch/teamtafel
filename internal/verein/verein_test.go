@@ -253,3 +253,30 @@ func TestMannschaftDoppeltInSaison(t *testing.T) {
 		t.Fatalf("err = %v, want ErrMannschaftVorhanden", err)
 	}
 }
+
+func TestVereinsfarbe(t *testing.T) {
+	store := verein.NewStore(dbtest.AppPool(t))
+	ctx := context.Background()
+	slug := eindeutigerSlug("farbe")
+	v, err := store.Anlegen(ctx, slug, "TTC Farbe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Farbe != verein.StandardFarbe {
+		t.Fatalf("neuer verein hat farbe %q", v.Farbe)
+	}
+
+	if err := store.FarbeSetzen(ctx, v.ID, "#8c1d2a"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.BySlug(ctx, slug)
+	if err != nil || got.Farbe != "#8C1D2A" {
+		t.Fatalf("farbe nach dem setzen = %q %v", got.Farbe, err)
+	}
+
+	for _, f := range []string{"", "rot", "#12345", "#GGGGGG", "#FFFFFF", "#F5D90A"} {
+		if err := store.FarbeSetzen(ctx, v.ID, f); !errors.Is(err, verein.ErrUngueltigeFarbe) {
+			t.Errorf("farbe %q: err = %v", f, err)
+		}
+	}
+}

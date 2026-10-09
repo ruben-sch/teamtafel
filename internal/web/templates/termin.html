@@ -1,28 +1,41 @@
 {{template "kopf" .}}
-    <p><a href="/">Zur Startseite</a>{{if .Verwalter}} · <a href="/m/{{.Termin.MannschaftID}}">{{.Termin.Mannschaft}}</a>{{end}}</p>
+  {{- $s := .}}
+  {{- with .Termin}}
+  <header class="kopf">
+    <div class="kopf-innen">
+      {{- if $s.Verwalter}}
+      <a class="zurueck" href="/m/{{.MannschaftID}}">{{template "icon-zurueck"}}{{.Mannschaft}}</a>
+      {{- else}}
+      <a class="zurueck" href="/">{{template "icon-zurueck"}}Termine</a>
+      {{- end}}
+      <span class="chip hell">{{typName .Typ}} · {{.Mannschaft}}</span>
+      <h1>{{if .Titel}}{{.Titel}}{{else}}{{typName .Typ}}{{end}}</h1>
+    </div>
+  </header>
+  {{- end}}
+  <main>
     {{- with .Termin}}
-    <h1>{{typName .Typ}}{{if .Titel}} {{.Titel}}{{end}}</h1>
-    <p class="leise">{{.Mannschaft}}</p>
     {{- if .Abgesagt}}
-    <p class="fehler"><strong>Abgesagt</strong></p>
+    <p class="hinweis"><strong>Abgesagt.</strong> Dieser Termin findet nicht statt.</p>
     {{- end}}
-    <div class="karte">
-      <p><strong>{{datum .Beginn}}</strong>, {{uhrzeit .Beginn}} bis {{uhrzeit .Ende}} Uhr</p>
-      {{- if .Treffzeit}}
-      <p>Treffen um {{uhrzeit .Treffzeit}} Uhr{{if .Treffpunkt}}, {{.Treffpunkt}}{{end}}</p>
-      {{- else if .Treffpunkt}}
-      <p>Treffpunkt: {{.Treffpunkt}}</p>
-      {{- end}}
-      {{- if .Ort}}
-      <p>Ort: {{.Ort}}</p>
-      {{- end}}
-      {{- if .Frist}}
-      <p class="leise">Rückmelden bis {{datum .Frist}}, {{uhrzeit .Frist}} Uhr</p>
-      {{- end}}
+    <div class="karte dicht">
+      <ul class="fakten">
+        <li>{{template "icon-uhr"}}<div><b>{{datum .Beginn}}</b><span>{{uhrzeit .Beginn}} bis {{uhrzeit .Ende}} Uhr</span></div></li>
+        {{- if .Treffzeit}}
+        <li>{{template "icon-treff"}}<div><b>Treffen {{uhrzeit .Treffzeit}} Uhr</b>{{if .Treffpunkt}}<span>{{.Treffpunkt}}</span>{{end}}</div></li>
+        {{- else if .Treffpunkt}}
+        <li>{{template "icon-treff"}}<div><b>{{.Treffpunkt}}</b><span>Treffpunkt</span></div></li>
+        {{- end}}
+        {{- if .Ort}}
+        <li>{{template "icon-ort"}}<div><b>{{.Ort}}</b><span>Ort</span></div></li>
+        {{- end}}
+        {{- if .Frist}}
+        <li>{{template "icon-frist"}}<div><b>{{datum .Frist}}, {{uhrzeit .Frist}} Uhr</b><span>Rückmelden bis</span></div></li>
+        {{- end}}
+      </ul>
     </div>
     {{- end}}
 
-    {{- $s := .}}
     {{- if and .Meine (not .Termin.Abgesagt)}}
     <h2>Rückmeldung</h2>
     {{- if .FristVorbei}}
@@ -30,17 +43,19 @@
     {{- end}}
     {{- range .Meine}}
     <div class="karte">
-      <strong>{{.Vorname}}</strong>: <span class="status-{{.Status}}">{{statusText .Status}}</span>
+      <div class="kopfzeile"><b>{{.Vorname}}</b><span class="status-{{.Status}}">{{statusText .Status}}</span></div>
       {{- if $s.FristOffen}}
-      <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}" class="antwort">
-        <button name="status" value="zu" class="zu{{if eq .Status "zu"}} aktiv{{end}}">Zu</button>
-        <select name="grund" aria-label="Grund bei Absage">
-          <option value="">Grund (optional)</option>
+      <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
+        <label for="grund-{{.SpielerID}}" class="leise">Grund bei Absage <span class="leise">(optional, sieht nur das Trainerteam)</span></label>
+        <select id="grund-{{.SpielerID}}" name="grund">
+          <option value="">kein Grund</option>
           <option value="krank"{{if eq .Grund "krank"}} selected{{end}}>krank</option>
           <option value="urlaub"{{if eq .Grund "urlaub"}} selected{{end}}>Urlaub</option>
           <option value="sonstiges"{{if eq .Grund "sonstiges"}} selected{{end}}>sonstiges</option>
         </select>
-        <button name="status" value="ab" class="ab{{if eq .Status "ab"}} aktiv{{end}}">Ab</button>
+        <div class="wahl breit">
+          {{template "zuab" .Status}}
+        </div>
       </form>
       {{- end}}
     </div>
@@ -49,24 +64,31 @@
 
     {{- if and .Alle (not .Termin.Abgesagt)}}
     <h2>Team</h2>
-    <p class="leise">{{.Termin.Zu}} zu · {{.Termin.Ab}} ab · {{.Termin.Offen}} offen</p>
-    <ul class="team">
-      {{- range .Alle}}
-      <li>
-        <span>{{.Vorname}}{{if $s.Verwalter}} {{.Nachname}}{{end}}: <span class="status-{{.Status}}">{{if and $s.Verwalter (eq .Status "ab") .Grund}}Ab ({{grundText .Grund}}){{else}}{{statusText .Status}}{{end}}</span></span>
-        {{- if $s.Verwalter}}
-        <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}" class="inline">
-          <button name="status" value="zu" class="leise">zu</button>
-          <button name="status" value="ab" class="leise">ab</button>
-        </form>
+    <div class="karte">
+      {{template "zaehler" .Termin}}
+    </div>
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Alle}}
+        <li>
+          {{- if eq .Status "zu"}}<span class="punkt zu">{{template "icon-zu"}}</span>
+          {{- else if eq .Status "ab"}}<span class="punkt ab">{{template "icon-ab"}}</span>
+          {{- else}}<span class="punkt offen"></span>{{end}}
+          <span class="name">{{.Vorname}}{{if $s.Verwalter}} {{.Nachname}}{{end}}<small class="status-{{.Status}}">{{if and $s.Verwalter (eq .Status "ab") .Grund}}Ab ({{grundText .Grund}}){{else}}{{statusText .Status}}{{end}}</small></span>
+          {{- if $s.Verwalter}}
+          <form class="wahl" method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
+            <button name="status" value="zu" class="klein" aria-label="{{.Vorname}} zusagen">{{template "icon-zu"}}</button>
+            <button name="status" value="ab" class="klein" aria-label="{{.Vorname}} absagen">{{template "icon-ab"}}</button>
+          </form>
+          {{- end}}
+        </li>
         {{- end}}
-      </li>
-      {{- end}}
-    </ul>
+      </ul>
+    </div>
     {{- end}}
 
     {{- if .Verwalter}}
-    <details{{if .Fehler}} open{{end}}>
+    <details class="karte"{{if .Fehler}} open{{end}}>
       <summary>Termin ändern</summary>
       {{- if .Fehler}}
       <p class="fehler">{{.Fehler}}</p>
@@ -78,8 +100,9 @@
     </details>
     {{- if not .Termin.Abgesagt}}
     <form method="post" action="/t/{{.Termin.ID}}/absagen">
-      <button class="zweit">Termin absagen</button>
+      <button class="gefahr">Termin absagen</button>
     </form>
     {{- end}}
     {{- end}}
+  </main>
 {{template "fuss" .}}

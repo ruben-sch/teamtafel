@@ -1,8 +1,16 @@
 {{template "kopf" .}}
-    <p><a href="/m/{{.Mannschaft.ID}}">Zurück zu {{.Mannschaft.Name}}</a></p>
-    <h1>Team-Link {{.Mannschaft.Name}}</h1>
-    <p>Teile den Link in der Elterngruppe oder zeig den QR-Code beim Training. Jede Anmeldung gibst du danach selbst frei.</p>
-    {{.QR}}
-    <p class="link">{{.Link}}</p>
-    <p class="leise">Der Link wird nur jetzt angezeigt. Wenn du ihn verlierst, erzeuge einfach einen neuen.</p>
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/m/{{.Mannschaft.ID}}">{{template "icon-zurueck"}}{{.Mannschaft.Name}}</a>
+      <h1>Team-Link</h1>
+    </div>
+  </header>
+  <main>
+    <div class="karte">
+      <p>Teile den Link in der Teamgruppe oder zeig den QR-Code beim Training. Jede Anmeldung gibst du danach selbst frei.</p>
+      {{.QR}}
+      <p class="link">{{.Link}}</p>
+      <p class="leise">Der Link wird nur jetzt angezeigt. Wenn du ihn verlierst, erzeuge einfach einen neuen.</p>
+    </div>
+  </main>
 {{template "fuss" .}}

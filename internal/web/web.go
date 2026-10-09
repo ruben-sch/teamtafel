@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 	texttemplate "text/template"
 	"time"
 
@@ -38,6 +39,7 @@ type Vereine interface {
 	AdminHinzufuegen(ctx context.Context, vereinID, kontoID string) error
 	IstAdmin(ctx context.Context, vereinID, kontoID string) (bool, error)
 	Admins(ctx context.Context, vereinID string) ([]string, error)
+	FarbeSetzen(ctx context.Context, vereinID, farbe string) error
 }
 
 // Auth verwaltet Login-Links und Sessions.
@@ -106,6 +108,7 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("POST /auth/{token}", l.einloesen)
 	app.HandleFunc("POST /logout", l.abmelden)
 	statisch(app)
+	app.HandleFunc("GET /verein.css", vereinCSS)
 	e := &einstellungen{vapidKey: o.VAPIDPublicKey, scheme: o.Scheme}
 	if o.Kalender != nil && o.Termine != nil {
 		e.kalender, e.termine = o.Kalender, o.Termine
@@ -142,6 +145,7 @@ func NewHandler(o Options) http.Handler {
 		app.HandleFunc("GET /admin", a.seite)
 		app.HandleFunc("POST /admin/vereine", a.vereinAnlegen)
 		app.HandleFunc("POST /admin/admins", a.adminHinzufuegen)
+		app.HandleFunc("POST /admin/farbe", a.farbeSetzen)
 		app.HandleFunc("POST /admin/mannschaften", a.mannschaftAnlegen)
 		app.HandleFunc("POST /admin/mannschaften/{id}/trainer", a.trainerHinzufuegen)
 		app.HandleFunc("POST /admin/mannschaften/{id}/trainer/{konto}/entfernen", a.trainerEntfernen)
@@ -212,6 +216,24 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 		}
 		render(w, "index.html", data)
 	}
+}
+
+// vereinCSS liefert die Vereinsfarbe als CSS-Variable. Eine eigene Datei statt
+// Inline-Style, damit nicht jede Seite den Verein in ihre Daten aufnehmen muss.
+func vereinCSS(w http.ResponseWriter, r *http.Request) {
+	farbe := verein.StandardFarbe
+	if v, ok := vereinAus(r.Context()); ok && v.Farbe != "" {
+		farbe = v.Farbe
+	}
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	// Immer frisch prüfen, damit eine neue Farbe sofort ankommt.
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", `"`+strings.TrimPrefix(farbe, "#")+`"`)
+	if r.Header.Get("If-None-Match") == w.Header().Get("ETag") {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	_, _ = w.Write([]byte(":root { --verein: " + farbe + "; }\n"))
 }
 
 func render(w http.ResponseWriter, name string, data any) {

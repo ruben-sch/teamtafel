@@ -1,7 +1,12 @@
 {{template "kopf" .}}
-    <h1>{{.Mannschaft.Name}}</h1>
-    <p class="leise">Saison {{.Mannschaft.Saison}}</p>
-    <form method="post">
+  <header class="kopf">
+    <div class="kopf-innen">
+      <span class="chip hell">Anmeldung · Saison {{.Mannschaft.Saison}}</span>
+      <h1>{{.Mannschaft.Name}}</h1>
+    </div>
+  </header>
+  <main>
+    <form class="karte" method="post">
       <label class="wahl"><input type="radio" name="art" value="kind"{{if ne .Daten.Art "selbst"}} checked{{end}}> Ich melde mein Kind an</label>
       <label class="wahl"><input type="radio" name="art" value="selbst"{{if eq .Daten.Art "selbst"}} checked{{end}}> Ich spiele selbst</label>
       <label for="vorname">Vorname</label>
@@ -15,4 +20,5 @@
       {{- end}}
       <button>Anfrage senden</button>
     </form>
+  </main>
 {{template "fuss" .}}

@@ -69,6 +69,8 @@ func karten(ctx context.Context, ts Termine, vereinID, kontoID string, termine [
 	return out, nil
 }
 
+var monateKurz = [...]string{"JAN", "FEB", "MÄR", "APR", "MAI", "JUN", "JUL", "AUG", "SEP", "OKT", "NOV", "DEZ"}
+
 var funcs = template.FuncMap{
 	// datum: "Di, 13.10.2026"
 	"datum": func(t time.Time) string {
@@ -98,6 +100,25 @@ var funcs = template.FuncMap{
 			return "sonstiges"
 		}
 		return ""
+	},
+	// Datumsblock der Terminkarte: "DI", "13", "OKT".
+	"wtKurz": func(t time.Time) string {
+		return strings.ToUpper(termin.Wochentage[t.In(termin.Zeitzone).Weekday()][:2])
+	},
+	"tagZahl": func(t time.Time) int { return t.In(termin.Zeitzone).Day() },
+	"monatKurz": func(t time.Time) string {
+		return monateKurz[t.In(termin.Zeitzone).Month()-1]
+	},
+	// anteil: Prozent von teil an der Summe, für den Zähler-Balken.
+	"anteil": func(teil int, alle ...int) int {
+		summe := 0
+		for _, n := range alle {
+			summe += n
+		}
+		if summe == 0 {
+			return 0
+		}
+		return teil * 100 / summe
 	},
 	"list": func(s ...string) []string { return s },
 	"inc":  func(i int) int { return i + 1 },

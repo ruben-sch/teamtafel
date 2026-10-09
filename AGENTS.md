@@ -20,7 +20,7 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/push/` – Web-Push-Abos (`push_abo`, global je Konto) und Versand per VAPID (webpush-go); 404/410 heißt Abo löschen. Texte entstehen in den Fachpaketen; nur Vornamen, keine Absagegründe.
 - `internal/kalender/` – iCal-Abo: geheimer Link je Konto und Verein (nur Hash in `kalender_token`), `ICS` schreibt RFC 5545 mit Faltung und Maskierung.
 - `internal/mail/` – SMTP-Versand (lokal Mailpit, sonst Resend); Tests laufen gegen Mailpit (`TEST_SMTP_ADDR`, `TEST_MAILPIT_URL`).
-- `internal/web/` – Handler, Templates und `static/` (Service Worker, Manifest, Icons, `app.js`); `mandant.go` löst den Verein aus der Subdomain auf.
+- `internal/web/` – Handler, Templates und `static/` (Service Worker, Manifest, Icons, `app.js`, `app.css`, selbst gehostete Schriften Barlow/Barlow Condensed); `mandant.go` löst den Verein aus der Subdomain auf. Die Vereinsfarbe setzt nur der Vereinsadmin, `/verein.css` liefert sie als `--verein`. Die Oberfläche bleibt sportartneutral.
 - `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.
 - `migrations/` – SQL-Migrationen (`NNNNN_name.sql`), per `embed` im Binary.
 - `deploy/` – Compose-Dateien für Staging/Produktion und das Init-Skript der App-Rolle.
