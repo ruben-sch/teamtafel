@@ -11,11 +11,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"rsc.io/qr"
 
 	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/team"
+	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
 
@@ -39,8 +41,10 @@ type Team interface {
 }
 
 type teamSeiten struct {
-	team   Team
-	scheme string
+	team    Team
+	termine Termine
+	rollen  *rollen
+	scheme  string
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -93,13 +97,16 @@ func (s *teamSeiten) trainerVon(w http.ResponseWriter, r *http.Request, mannscha
 type mannschaftSeite struct {
 	Titel      string
 	Mannschaft verein.Mannschaft
+	IstTrainer bool
 	Anfragen   []team.Anfrage
 	Kader      []team.Spieler
+	Termine    []termin.Termin
+	Serien     []termin.Serie
 }
 
 func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	v, _, ok := s.trainerVon(w, r, id)
+	v, k, ok := s.verwalterVon(w, r, id)
 	if !ok {
 		return
 	}
@@ -110,9 +117,26 @@ func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	seite := mannschaftSeite{Titel: m.Name, Mannschaft: m}
-	if seite.Anfragen, err = s.team.OffeneAnfragen(ctx, v.ID, id); err != nil {
-		interner(w, "anfragen laden", err)
+	if seite.IstTrainer, err = s.team.IstTrainer(ctx, v.ID, id, k.ID); err != nil {
+		interner(w, "trainer prüfen", err)
 		return
+	}
+	if seite.IstTrainer {
+		if seite.Anfragen, err = s.team.OffeneAnfragen(ctx, v.ID, id); err != nil {
+			interner(w, "anfragen laden", err)
+			return
+		}
+	}
+	if s.termine != nil {
+		ab := heute()
+		if seite.Termine, err = s.termine.Kommende(ctx, v.ID, id, ab, ab.Add(termin.Vorlauf+7*24*time.Hour)); err != nil {
+			interner(w, "termine laden", err)
+			return
+		}
+		if seite.Serien, err = s.termine.Serien(ctx, v.ID, id); err != nil {
+			interner(w, "serien laden", err)
+			return
+		}
 	}
 	if seite.Kader, err = s.team.Kader(ctx, v.ID, id); err != nil {
 		interner(w, "kader laden", err)
@@ -123,7 +147,7 @@ func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 
 func (s *teamSeiten) einladung(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	v, _, ok := s.trainerVon(w, r, id)
+	v, _, ok := s.verwalterVon(w, r, id)
 	if !ok {
 		return
 	}

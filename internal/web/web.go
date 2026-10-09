@@ -12,6 +12,7 @@ import (
 
 	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/team"
+	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
 
@@ -19,7 +20,7 @@ import (
 var templateFS embed.FS
 
 var (
-	templates     = template.Must(template.ParseFS(templateFS, "templates/*.html"))
+	templates     = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/*.html"))
 	mailTemplates = texttemplate.Must(texttemplate.ParseFS(templateFS, "templates/*.txt"))
 )
 
@@ -62,6 +63,8 @@ type Options struct {
 	Mailer  Mailer
 	// Team ist optional; ohne fehlen die Mannschafts- und Beitrittsseiten.
 	Team Team
+	// Termine ist optional; ohne fehlen die Terminseiten.
+	Termine Termine
 	// Superadmins sind die E-Mail-Adressen der Plattform-Admins.
 	Superadmins []string
 	// Scheme für Links in Mails: "https", lokal "http".
@@ -99,13 +102,23 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("POST /auth/{token}", l.einloesen)
 	app.HandleFunc("POST /logout", l.abmelden)
 	if o.Team != nil {
-		t := &teamSeiten{team: o.Team, scheme: o.Scheme}
+		t := &teamSeiten{team: o.Team, termine: o.Termine, rollen: rollen, scheme: o.Scheme}
 		app.HandleFunc("GET /m/{id}", t.mannschaft)
 		app.HandleFunc("POST /m/{id}/einladung", t.einladung)
 		app.HandleFunc("GET /join/{token}", t.joinFormular)
 		app.HandleFunc("POST /join/{token}", t.joinAnfragen)
 		app.HandleFunc("POST /anfragen/{id}/freigeben", t.anfrageEntscheiden(t.freigeben))
 		app.HandleFunc("POST /anfragen/{id}/ablehnen", t.anfrageEntscheiden(t.ablehnen))
+
+		if o.Termine != nil {
+			app.HandleFunc("GET /m/{id}/termine/neu", t.terminNeu)
+			app.HandleFunc("POST /m/{id}/termine", t.terminAnlegen)
+			app.HandleFunc("POST /m/{id}/serien", t.serieAnlegen)
+			app.HandleFunc("POST /serien/{id}/beenden", t.serieBeenden)
+			app.HandleFunc("GET /t/{id}", t.terminDetail)
+			app.HandleFunc("POST /t/{id}", t.terminAendern)
+			app.HandleFunc("POST /t/{id}/absagen", t.terminAbsagen)
+		}
 
 		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, rollen: rollen, scheme: o.Scheme}
 		app.HandleFunc("GET /admin", a.seite)
@@ -135,6 +148,7 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 			Mannschaften []verein.Mannschaft
 			Trainer      []verein.Mannschaft
 			Spieler      []team.Spieler
+			Termine      []termin.Termin
 			Konto        *auth.Konto
 			Admin        bool
 		}{Version: o.Version}
@@ -164,6 +178,13 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 				if data.Spieler, err = o.Team.MeineSpieler(r.Context(), v.ID, data.Konto.ID); err != nil {
 					interner(w, "eigene spieler laden", err)
 					return
+				}
+				if o.Termine != nil {
+					ab := heute()
+					if data.Termine, err = o.Termine.FuerKonto(r.Context(), v.ID, data.Konto.ID, ab, ab.AddDate(0, 0, 28)); err != nil {
+						interner(w, "termine laden", err)
+						return
+					}
 				}
 			}
 		}

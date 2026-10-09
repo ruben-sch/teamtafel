@@ -1,0 +1,40 @@
+{{template "kopf" .}}
+    <p><a href="/m/{{.Mannschaft.ID}}">Zurück zu {{.Mannschaft.Name}}</a></p>
+    <h1>Termin anlegen</h1>
+    {{- if .Fehler}}
+    <p class="fehler">{{.Fehler}}</p>
+    {{- end}}
+
+    <h2>Einzeltermin</h2>
+    <form method="post" action="/m/{{.Mannschaft.ID}}/termine">
+      {{template "terminfelder" .Termin}}
+      <button>Termin anlegen</button>
+    </form>
+
+    <h2>Wöchentliches Training</h2>
+    <p class="leise">Die Termine entstehen jeweils acht Wochen im Voraus und lassen sich einzeln ändern oder absagen.</p>
+    <form method="post" action="/m/{{.Mannschaft.ID}}/serien">
+      <div class="zeile">
+        <div><label for="wochentag">Wochentag</label>
+          <select id="wochentag" name="wochentag">
+            {{- $wt := .Serie.Wochentag}}
+            {{- range $i, $n := (list "Montag" "Dienstag" "Mittwoch" "Donnerstag" "Freitag" "Samstag" "Sonntag")}}
+            <option value="{{inc $i}}"{{if eq (print (inc $i)) $wt}} selected{{end}}>{{$n}}</option>
+            {{- end}}
+          </select></div>
+        <div><label for="uhrzeit">Beginn</label><input type="time" id="uhrzeit" name="uhrzeit" value="{{.Serie.Uhrzeit}}" required></div>
+        <div><label for="dauer">Dauer (Min.)</label><input type="number" id="dauer" name="dauer" value="{{.Serie.Dauer}}" min="1" required></div>
+      </div>
+      <div class="zeile">
+        <div><label for="treff">Treffen (Min. vorher)</label><input type="number" id="treff" name="treff" value="{{.Serie.Treff}}" min="0"></div>
+        <div><label for="frist">Rückmelden (Std. vorher)</label><input type="number" id="frist" name="frist" value="{{.Serie.Frist}}" min="0"></div>
+      </div>
+      <label for="serie-ort">Ort</label>
+      <input type="text" id="serie-ort" name="ort" value="{{.Serie.Ort}}">
+      <div class="zeile">
+        <div><label for="gueltig_von">Ab</label><input type="date" id="gueltig_von" name="gueltig_von" value="{{.Serie.GueltigVon}}" required></div>
+        <div><label for="gueltig_bis">Bis <span class="leise">(optional)</span></label><input type="date" id="gueltig_bis" name="gueltig_bis" value="{{.Serie.GueltigBis}}"></div>
+      </div>
+      <button>Serie anlegen</button>
+    </form>
+{{template "fuss" .}}

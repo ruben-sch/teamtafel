@@ -17,6 +17,7 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/db"
 	"github.com/ruben-sch/teamtafel/internal/mail"
 	"github.com/ruben-sch/teamtafel/internal/team"
+	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 	"github.com/ruben-sch/teamtafel/internal/web"
 )
@@ -57,13 +58,17 @@ func run() error {
 	}
 	defer pool.Close()
 
+	vereine, termine := verein.NewStore(pool), termin.NewStore(pool)
+	go serienFortschreiben(ctx, vereine, termine)
+
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: web.NewHandler(web.Options{
 			DB:      pool,
-			Vereine: verein.NewStore(pool),
+			Vereine: vereine,
 			Auth:    auth.NewStore(pool),
 			Team:    team.NewStore(pool),
+			Termine: termine,
 			Mailer: mail.NewSMTP(mail.Config{
 				Host: cfg.SMTPHost, Port: cfg.SMTPPort,
 				User: cfg.SMTPUser, Password: cfg.SMTPPassword,
@@ -116,4 +121,25 @@ func healthcheck() int {
 		return 1
 	}
 	return 0
+}
+
+// serienFortschreiben hält die Termine aller Serien stündlich acht Wochen im Voraus vor.
+// Mehrere Instanzen stören sich nicht, weil das Erzeugen idempotent ist.
+func serienFortschreiben(ctx context.Context, vereine *verein.Store, termine *termin.Store) {
+	for {
+		vs, err := vereine.Alle(ctx)
+		if err != nil {
+			slog.Error("serien fortschreiben: vereine laden", "err", err)
+		}
+		for _, v := range vs {
+			if err := termine.Fortschreiben(ctx, v.ID); err != nil {
+				slog.Error("serien fortschreiben", "verein", v.Slug, "err", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Hour):
+		}
+	}
 }
