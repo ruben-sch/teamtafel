@@ -79,6 +79,8 @@ type Options struct {
 	// Vereine liegen auf <slug>.<BaseHost>.
 	BaseHost string
 	Version  string
+	// Betreiber erscheint in Impressum und Datenschutzerklärung.
+	Betreiber Betreiber
 }
 
 // NewHandler baut den Router der Anwendung.
@@ -109,6 +111,8 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("POST /logout", l.abmelden)
 	statisch(app)
 	app.HandleFunc("GET /verein.css", vereinCSS)
+	app.HandleFunc("GET /impressum", rechtliches(o.Betreiber, "impressum.html", "Impressum"))
+	app.HandleFunc("GET /datenschutz", rechtliches(o.Betreiber, "datenschutz.html", "Datenschutz"))
 	e := &einstellungen{vapidKey: o.VAPIDPublicKey, scheme: o.Scheme}
 	if o.Kalender != nil && o.Termine != nil {
 		e.kalender, e.termine = o.Kalender, o.Termine

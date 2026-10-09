@@ -46,6 +46,12 @@ Die Wartung in der App setzt sie stündlich um:
 - Konten, die in keinem Verein mehr Trainer, Admin, Spieler oder Vertretung sind, werden nach 30 Tagen gelöscht. 7 Tage vorher geht ein Hinweis per Mail; ohne verschickten Hinweis (etwa auf Staging außerhalb von `MAIL_ALLOWLIST`) wird nicht gelöscht. Super-Admins sind ausgenommen.
 - Logs und gespeicherte Fehlermeldungen enthalten nur IDs, keine E-Mail-Adressen oder Namen.
 
+Ändert sich hier etwas, muss die Datenschutzerklärung (`internal/web/templates/datenschutz.html`) mitziehen.
+
+### Impressum und Datenschutz
+
+`/impressum` und `/datenschutz` sind auf jeder Domain ohne Anmeldung erreichbar und in der Fußzeile verlinkt. Die Betreiberangaben kommen aus den Environment-Variablen `BETREIBER_NAME`, `BETREIBER_ANSCHRIFT` und `BETREIBER_EMAIL` (je Environment, ohne einfache Anführungszeichen). Fehlen sie, zeigen beide Seiten einen Hinweis statt der Angaben.
+
 Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.
 
 Lokal: `http://<slug>.localhost:8080` (Browser lösen `*.localhost` selbst auf).

@@ -33,6 +33,8 @@ type Config struct {
 	VAPIDPublicKey, VAPIDPrivateKey string
 	// VAPIDSubject identifiziert den Absender bei den Push-Diensten, Standard mailto:<MAIL_FROM-Adresse>.
 	VAPIDSubject string
+	// Betreiber für Impressum und Datenschutzerklärung (BETREIBER_NAME, BETREIBER_ANSCHRIFT, BETREIBER_EMAIL).
+	BetreiberName, BetreiberAnschrift, BetreiberEmail string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -56,6 +58,9 @@ func FromEnv(version string) (Config, error) {
 		VAPIDPublicKey:     os.Getenv("VAPID_PUBLIC_KEY"),
 		VAPIDPrivateKey:    os.Getenv("VAPID_PRIVATE_KEY"),
 		VAPIDSubject:       os.Getenv("VAPID_SUBJECT"),
+		BetreiberName:      os.Getenv("BETREIBER_NAME"),
+		BetreiberAnschrift: os.Getenv("BETREIBER_ANSCHRIFT"),
+		BetreiberEmail:     os.Getenv("BETREIBER_EMAIL"),
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL ist nicht gesetzt")

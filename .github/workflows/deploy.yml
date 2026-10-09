@@ -9,6 +9,8 @@ name: Deploy
 # Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
 #   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt;
 #   MAIL_ALLOWLIST (Staging), nur diese Adressen bekommen Benachrichtigungen; leer heißt alle
+#   BETREIBER_NAME, BETREIBER_ANSCHRIFT, BETREIBER_EMAIL für Impressum und Datenschutzerklärung
+#   (ohne einfache Anführungszeichen), z. B. "Erika Muster", "Hauptstr. 1, 75391 Gechingen"
 on:
   push:
     branches: [main]
@@ -99,6 +101,9 @@ jobs:
           SUPERADMIN_EMAILS: ${{ vars.SUPERADMIN_EMAILS }}
           MAIL_ALLOWLIST: ${{ vars.MAIL_ALLOWLIST }}
           VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          BETREIBER_NAME: ${{ vars.BETREIBER_NAME }}
+          BETREIBER_ANSCHRIFT: ${{ vars.BETREIBER_ANSCHRIFT }}
+          BETREIBER_EMAIL: ${{ vars.BETREIBER_EMAIL }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
@@ -109,7 +114,7 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,MAIL_ALLOWLIST,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,MAIL_ALLOWLIST,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,BETREIBER_NAME,BETREIBER_ANSCHRIFT,BETREIBER_EMAIL,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -140,6 +145,9 @@ jobs:
             MAIL_ALLOWLIST='$MAIL_ALLOWLIST'
             VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY
             VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY
+            BETREIBER_NAME='$BETREIBER_NAME'
+            BETREIBER_ANSCHRIFT='$BETREIBER_ANSCHRIFT'
+            BETREIBER_EMAIL='$BETREIBER_EMAIL'
             EOF
 
             docker network inspect proxy >/dev/null 2>&1 || docker network create proxy

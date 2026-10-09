@@ -1,0 +1,22 @@
+{{template "kopf" .}}
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <h1>Impressum</h1>
+    </div>
+  </header>
+  <main>
+    <div class="karte rechtliches">
+      {{- if .Betreiber.Vollstaendig}}
+      <h2>Angaben gemäß § 5 DDG</h2>
+      <p>{{.Betreiber.Name}}<br>{{.Betreiber.Anschrift}}</p>
+      <h2>Kontakt</h2>
+      <p>E-Mail: <a href="mailto:{{.Betreiber.Email}}">{{.Betreiber.Email}}</a></p>
+      <h2>Vereinsinhalte</h2>
+      <p>Mannschaften, Termine und Kader pflegen die Vereine selbst. Für diese Inhalte ist der jeweilige Verein verantwortlich.</p>
+      {{- else}}
+      <p>Die Angaben zum Betreiber sind noch nicht hinterlegt.</p>
+      {{- end}}
+    </div>
+  </main>
+{{template "fuss" .}}
