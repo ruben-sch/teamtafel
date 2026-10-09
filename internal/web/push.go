@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"html/template"
 	"io/fs"
 	"net/http"
 
@@ -40,19 +41,49 @@ func statisch(app *http.ServeMux) {
 type einstellungen struct {
 	abos     PushAbos
 	vapidKey string
+	kalender Kalender
+	termine  Termine
+	scheme   string
+}
+
+type einstellungenSeite struct {
+	Titel    string
+	VAPIDKey string
+	// Kalender gibt es nur auf einer Vereins-Subdomain.
+	Kalender      bool
+	KalenderAktiv bool
+	// KalenderLink steht nur direkt nach dem Erneuern im Klartext zur Verfügung.
+	KalenderLink string
+	// KalenderWebcal ist selbst gebaut; template.URL, weil html/template webcal: sonst entschärft.
+	KalenderWebcal template.URL
 }
 
 func (e *einstellungen) seite(w http.ResponseWriter, r *http.Request) {
-	if _, ok := kontoAus(r.Context()); !ok {
+	e.zeigen(w, r, "")
+}
+
+func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, token string) {
+	k, ok := kontoAus(r.Context())
+	if !ok {
 		http.Redirect(w, r, "/login?weiter=/einstellungen", http.StatusSeeOther)
 		return
 	}
-	data := struct {
-		Titel    string
-		VAPIDKey string
-	}{Titel: "Einstellungen"}
+	data := einstellungenSeite{Titel: "Einstellungen"}
 	if e.abos != nil {
 		data.VAPIDKey = e.vapidKey
+	}
+	if v, ok := vereinAus(r.Context()); ok && e.kalender != nil {
+		data.Kalender = true
+		aktiv, err := e.kalender.Vorhanden(r.Context(), v.ID, k.ID)
+		if err != nil {
+			interner(w, "kalender-link prüfen", err)
+			return
+		}
+		data.KalenderAktiv = aktiv
+		if token != "" {
+			pfad := r.Host + "/kalender/" + token + ".ics"
+			data.KalenderLink, data.KalenderWebcal = e.scheme+"://"+pfad, template.URL("webcal://"+pfad) // #nosec G203 -- Host und Token aus eigener Quelle
+		}
 	}
 	render(w, "einstellungen.html", data)
 }

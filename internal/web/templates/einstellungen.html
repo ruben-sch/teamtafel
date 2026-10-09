@@ -12,5 +12,23 @@
     {{- else}}
     <p>Du bekommst Neuigkeiten zu Terminen per E-Mail.</p>
     {{- end}}
+    {{- if .Kalender}}
+    <h2>Kalender-Abo</h2>
+    {{- if .KalenderLink}}
+    <div class="karte">
+      <p>Dein persönlicher Kalender-Link. Er wird nur jetzt angezeigt, kopier ihn dir:</p>
+      <p class="link">{{.KalenderLink}}</p>
+      <p><a href="{{.KalenderWebcal}}">Im Kalender des Geräts abonnieren</a></p>
+      <p class="leise">Google Kalender: „Weitere Kalender“ → „Per URL“ und den Link einfügen. Wer den Link hat, sieht deine Termine, gib ihn nicht weiter.</p>
+    </div>
+    {{- else if .KalenderAktiv}}
+    <p>Dein Kalender-Link ist aktiv. Wenn du ihn verloren hast, erzeuge einen neuen; der alte funktioniert dann nicht mehr.</p>
+    {{- else}}
+    <p>Abonniere deine Termine in Google, Apple oder Outlook. Absagen und Änderungen kommen automatisch an.</p>
+    {{- end}}
+    {{- if not .KalenderLink}}
+    <form method="post" action="/einstellungen/kalender"><button>{{if .KalenderAktiv}}Neuen Kalender-Link erzeugen{{else}}Kalender-Link erzeugen{{end}}</button></form>
+    {{- end}}
+    {{- end}}
     <p><a href="/">Zur Startseite</a></p>
 {{template "fuss" .}}
