@@ -19,7 +19,10 @@ Jeder Verein ist ein Mandant und läuft unter `<slug>.<APP_HOST>`. Bis es eine A
 ```sh
 docker compose -p teamtafel-staging exec app /teamtafel verein-anlegen demo "Demo FC"
 docker compose -p teamtafel-staging exec app /teamtafel mannschaft-anlegen demo 2026/27 Bambini
+docker compose -p teamtafel-staging exec app /teamtafel trainer-hinzufuegen demo Bambini trainer@example.org
 ```
+
+Der Trainer meldet sich per Magic-Link an, öffnet seine Mannschaft und erzeugt dort den Team-Link mit QR-Code. Eltern (oder Spieler selbst) melden sich über den Link an und stellen eine Beitrittsanfrage, die der Trainer freigibt oder ablehnt.
 
 Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Wildcard-Einträge `*.teamtafel.schwarzpost.de` und `*.staging.teamtafel.schwarzpost.de` auf die VM.
 

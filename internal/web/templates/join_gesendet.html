@@ -1,0 +1,6 @@
+{{template "kopf" .}}
+    <h1>Anfrage gesendet</h1>
+    <p>{{.Anfrage.Vorname}} {{.Anfrage.Nachname}} ist für {{.Mannschaft.Name}} angemeldet.
+      Der Trainer muss die Anfrage noch freigeben. Danach erscheint {{.Anfrage.Vorname}} auf deiner Startseite.</p>
+    <p><a href="/">Zur Startseite</a></p>
+{{template "fuss" .}}

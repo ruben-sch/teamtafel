@@ -16,6 +16,7 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/config"
 	"github.com/ruben-sch/teamtafel/internal/db"
 	"github.com/ruben-sch/teamtafel/internal/mail"
+	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 	"github.com/ruben-sch/teamtafel/internal/web"
 )
@@ -30,7 +31,7 @@ func main() {
 		switch os.Args[1] {
 		case "healthcheck":
 			os.Exit(healthcheck())
-		case "verein-anlegen", "mannschaft-anlegen":
+		case "verein-anlegen", "mannschaft-anlegen", "trainer-hinzufuegen":
 			if err := admin(os.Args[1], os.Args[2:]); err != nil {
 				fmt.Fprintln(os.Stderr, "fehler:", err)
 				os.Exit(1)
@@ -68,6 +69,7 @@ func run() error {
 			DB:      pool,
 			Vereine: verein.NewStore(pool),
 			Auth:    auth.NewStore(pool),
+			Team:    team.NewStore(pool),
 			Mailer: mail.NewSMTP(mail.Config{
 				Host: cfg.SMTPHost, Port: cfg.SMTPPort,
 				User: cfg.SMTPUser, Password: cfg.SMTPPassword,

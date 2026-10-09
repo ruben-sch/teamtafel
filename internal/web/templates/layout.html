@@ -10,14 +10,20 @@
     h1 { margin: 0 0 .5rem; }
     .leise { color: #5b6475; font-size: .875rem; }
     .fehler { color: #b42318; }
-    input[type=email] { width: 100%; box-sizing: border-box; padding: .6rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
+    input[type=email], input[type=text], input[type=number] { width: 100%; box-sizing: border-box; padding: .6rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
     button { margin-top: .75rem; padding: .6rem 1rem; font-size: 1rem; border: 0; border-radius: .4rem; background: #1f6feb; color: #fff; }
     button.leise { background: none; color: inherit; padding: 0; text-decoration: underline; }
     form.inline { display: inline; }
+    label { display: block; margin-top: .75rem; }
+    label.wahl { display: flex; gap: .5rem; align-items: center; }
+    .karte { background: rgba(127,127,127,.08); border-radius: .5rem; padding: .75rem 1rem; margin: .75rem 0; }
+    button.zweit { background: #5b6475; }
+    .qr { width: 16rem; max-width: 100%; display: block; margin: 1rem 0; }
+    .link { word-break: break-all; font-family: ui-monospace, monospace; font-size: .875rem; }
     @media (prefers-color-scheme: dark) {
       body { background: #12151b; color: #e6e9ef; }
       .leise { color: #9aa3b5; }
-      input[type=email] { background: #1b1f27; color: inherit; border-color: #39404d; }
+      input[type=email], input[type=text], input[type=number] { background: #1b1f27; color: inherit; border-color: #39404d; }
     }
   </style>
 </head>

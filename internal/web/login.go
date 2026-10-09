@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -55,6 +56,8 @@ type loginSeite struct {
 	Email  string
 	Fehler string
 	Token  string
+	// Weiter ist die Seite, auf die es nach dem Einlösen geht.
+	Weiter string
 }
 
 type meldung struct {
@@ -62,12 +65,12 @@ type meldung struct {
 }
 
 func (l *login) formular(w http.ResponseWriter, r *http.Request) {
-	render(w, "login.html", loginSeite{Titel: "Anmelden"})
+	render(w, "login.html", loginSeite{Titel: "Anmelden", Weiter: sicheresZiel(r.URL.Query().Get("weiter"))})
 }
 
 func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 	email := auth.NormalisiereEmail(r.PostFormValue("email"))
-	seite := loginSeite{Titel: "Anmelden", Email: email}
+	seite := loginSeite{Titel: "Anmelden", Email: email, Weiter: sicheresZiel(r.PostFormValue("weiter"))}
 
 	if !l.proIP.Erlaubt(clientIP(r)) || !l.proAdresse.Erlaubt(email) {
 		seite.Fehler = "Zu viele Versuche. Bitte warte ein paar Minuten."
@@ -88,6 +91,9 @@ func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link := l.scheme + "://" + r.Host + "/auth/" + token
+	if seite.Weiter != "/" {
+		link += "?weiter=" + url.QueryEscape(seite.Weiter)
+	}
 	var text strings.Builder
 	if err := mailTemplates.ExecuteTemplate(&text, "mail_login.txt", struct{ Link string }{link}); err != nil {
 		slog.Error("login-mail rendern", "err", err)
@@ -110,7 +116,9 @@ func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 // bestaetigen zeigt nur einen Knopf. Erst der POST löst den Link ein, damit
 // Mail-Scanner, die Links vorab öffnen, ihn nicht verbrauchen.
 func (l *login) bestaetigen(w http.ResponseWriter, r *http.Request) {
-	render(w, "auth.html", loginSeite{Titel: "Anmelden", Token: r.PathValue("token")})
+	render(w, "auth.html", loginSeite{
+		Titel: "Anmelden", Token: r.PathValue("token"), Weiter: sicheresZiel(r.URL.Query().Get("weiter")),
+	})
 }
 
 func (l *login) einloesen(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +144,20 @@ func (l *login) einloesen(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, sicheresZiel(r.FormValue("weiter")), http.StatusSeeOther)
+}
+
+// sicheresZiel lässt nur Pfade auf dem eigenen Host zu, damit "weiter" nicht
+// als offene Weiterleitung auf fremde Seiten taugt.
+func sicheresZiel(s string) string {
+	if !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") || strings.HasPrefix(s, "/\\") {
+		return "/"
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.Host != "" || u.Scheme != "" {
+		return "/"
+	}
+	return s
 }
 
 func (l *login) abmelden(w http.ResponseWriter, r *http.Request) {

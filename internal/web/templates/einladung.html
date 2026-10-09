@@ -1,0 +1,8 @@
+{{template "kopf" .}}
+    <p><a href="/m/{{.Mannschaft.ID}}">Zurück zu {{.Mannschaft.Name}}</a></p>
+    <h1>Team-Link {{.Mannschaft.Name}}</h1>
+    <p>Teile den Link in der Elterngruppe oder zeig den QR-Code beim Training. Jede Anmeldung gibst du danach selbst frei.</p>
+    {{.QR}}
+    <p class="link">{{.Link}}</p>
+    <p class="leise">Der Link wird nur jetzt angezeigt. Wenn du ihn verlierst, erzeuge einfach einen neuen.</p>
+{{template "fuss" .}}

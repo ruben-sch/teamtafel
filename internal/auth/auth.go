@@ -114,6 +114,24 @@ RETURNING id::text, name`, k.Email).Scan(&k.ID, &k.Name)
 	return sess, k, nil
 }
 
+// KontoFuer liefert das Konto zur Adresse und legt es bei Bedarf an
+// (z. B. wenn ein Trainer eingetragen wird, bevor er sich je angemeldet hat).
+func (s *Store) KontoFuer(ctx context.Context, email string) (Konto, error) {
+	email = NormalisiereEmail(email)
+	if a, err := mail.ParseAddress(email); err != nil || a.Address != email {
+		return Konto{}, ErrUngueltigeAdresse
+	}
+	k := Konto{Email: email}
+	err := s.pool.QueryRow(ctx, `
+INSERT INTO konto (email) VALUES ($1)
+ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+RETURNING id::text, name`, email).Scan(&k.ID, &k.Name)
+	if err != nil {
+		return Konto{}, fmt.Errorf("konto anlegen: %w", err)
+	}
+	return k, nil
+}
+
 // Sitzung liefert das Konto einer gültigen Session und verlängert sie gleitend.
 func (s *Store) Sitzung(ctx context.Context, token string) (Konto, error) {
 	now := s.Now()

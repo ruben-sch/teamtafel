@@ -1,0 +1,42 @@
+{{template "kopf" .}}
+    <p><a href="/">Zur Startseite</a></p>
+    <h1>{{.Mannschaft.Name}}</h1>
+    <p class="leise">Saison {{.Mannschaft.Saison}}</p>
+
+    <h2>Beitrittsanfragen</h2>
+    {{- range .Anfragen}}
+    <div class="karte">
+      <strong>{{.Vorname}} {{.Nachname}}</strong>, Jahrgang {{.Jahrgang}}
+      <p class="leise">{{if eq .Art "selbst"}}Spielt selbst{{else}}Angemeldet von{{end}}: {{.Email}}</p>
+      <form method="post" action="/anfragen/{{.ID}}/freigeben">
+        {{- if .TrefferSpielerID}}
+        <label class="wahl"><input type="checkbox" name="gleich" value="1" checked>
+          Im Verein gibt es schon einen Spieler mit diesem Namen und Jahrgang. Ist es dieselbe Person?</label>
+        {{- end}}
+        <button>Ja, freigeben</button>
+      </form>
+      <form method="post" action="/anfragen/{{.ID}}/ablehnen">
+        <button class="zweit">Ablehnen</button>
+      </form>
+    </div>
+    {{- else}}
+    <p>Keine offenen Anfragen.</p>
+    {{- end}}
+
+    <h2>Kader</h2>
+    {{- if .Kader}}
+    <ul>
+      {{- range .Kader}}
+      <li>{{.Nachname}}, {{.Vorname}} <span class="leise">{{.Jahrgang}}</span></li>
+      {{- end}}
+    </ul>
+    {{- else}}
+    <p>Noch niemand im Kader.</p>
+    {{- end}}
+
+    <h2>Team-Link</h2>
+    <p>Mit dem Team-Link melden Eltern ihre Kinder an. Ein neuer Link macht den bisherigen ungültig.</p>
+    <form method="post" action="/m/{{.Mannschaft.ID}}/einladung">
+      <button>Neuen Team-Link erzeugen</button>
+    </form>
+{{template "fuss" .}}

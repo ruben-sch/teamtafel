@@ -2,6 +2,7 @@
     <h1>Anmelden</h1>
     <p>Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du dich ohne Passwort anmeldest.</p>
     <form method="post" action="/login">
+      <input type="hidden" name="weiter" value="{{.Weiter}}">
       <label for="email">E-Mail-Adresse</label>
       <input type="email" id="email" name="email" value="{{.Email}}" autocomplete="email" required autofocus>
       {{- if .Fehler}}

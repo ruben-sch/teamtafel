@@ -1,0 +1,18 @@
+{{template "kopf" .}}
+    <h1>{{.Mannschaft.Name}}</h1>
+    <p class="leise">Saison {{.Mannschaft.Saison}}</p>
+    <form method="post">
+      <label class="wahl"><input type="radio" name="art" value="kind"{{if ne .Daten.Art "selbst"}} checked{{end}}> Ich melde mein Kind an</label>
+      <label class="wahl"><input type="radio" name="art" value="selbst"{{if eq .Daten.Art "selbst"}} checked{{end}}> Ich spiele selbst</label>
+      <label for="vorname">Vorname</label>
+      <input type="text" id="vorname" name="vorname" value="{{.Daten.Vorname}}" autocomplete="off" required>
+      <label for="nachname">Nachname</label>
+      <input type="text" id="nachname" name="nachname" value="{{.Daten.Nachname}}" autocomplete="off" required>
+      <label for="jahrgang">Jahrgang</label>
+      <input type="number" id="jahrgang" name="jahrgang" value="{{if .Daten.Jahrgang}}{{.Daten.Jahrgang}}{{end}}" min="1900" max="2100" inputmode="numeric" required>
+      {{- if .Fehler}}
+      <p class="fehler">{{.Fehler}}</p>
+      {{- end}}
+      <button>Anfrage senden</button>
+    </form>
+{{template "fuss" .}}
