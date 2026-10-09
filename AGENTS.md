@@ -18,6 +18,7 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/job/` – Outbox und Job-Queue (`job`-Tabelle, global ohne RLS): `Einreihen` in der fachlichen Transaktion, Worker mit `FOR UPDATE SKIP LOCKED` und Backoff.
 - `internal/nachricht/` – Benachrichtigungen: Empfänger (`Team`, `Trainer`, `Spieler`), `An` reiht je Konto einen Job ein, `Zustellung` verschickt per Web Push, sonst Mail.
 - `internal/push/` – Web-Push-Abos (`push_abo`, global je Konto) und Versand per VAPID (webpush-go); 404/410 heißt Abo löschen. Texte entstehen in den Fachpaketen; nur Vornamen, keine Absagegründe.
+- `internal/kalender/` – iCal-Abo: geheimer Link je Konto und Verein (nur Hash in `kalender_token`), `ICS` schreibt RFC 5545 mit Faltung und Maskierung.
 - `internal/mail/` – SMTP-Versand (lokal Mailpit, sonst Resend); Tests laufen gegen Mailpit (`TEST_SMTP_ADDR`, `TEST_MAILPIT_URL`).
 - `internal/web/` – Handler, Templates und `static/` (Service Worker, Manifest, Icons, `app.js`); `mandant.go` löst den Verein aus der Subdomain auf.
 - `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.

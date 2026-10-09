@@ -16,6 +16,7 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/config"
 	"github.com/ruben-sch/teamtafel/internal/db"
 	"github.com/ruben-sch/teamtafel/internal/job"
+	"github.com/ruben-sch/teamtafel/internal/kalender"
 	"github.com/ruben-sch/teamtafel/internal/mail"
 	"github.com/ruben-sch/teamtafel/internal/nachricht"
 	"github.com/ruben-sch/teamtafel/internal/push"
@@ -93,6 +94,7 @@ func run() error {
 			Superadmins:    cfg.Superadmins,
 			Push:           pushAbos(abos),
 			VAPIDPublicKey: cfg.VAPIDPublicKey,
+			Kalender:       kalender.NewStore(pool),
 			Scheme:         cfg.Scheme,
 			BaseHost:       cfg.BaseHost,
 			Version:        cfg.Version,

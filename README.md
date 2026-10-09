@@ -22,6 +22,8 @@ Jeder Verein ist ein Mandant und läuft unter `<slug>.<APP_HOST>`.
 - **Eltern und Spieler** sagen direkt auf der Startseite zu oder ab, im Termin auch mit Grund (krank, Urlaub, sonstiges). Bis zur Frist (ohne Frist bis zum Beginn) geht das selbst, danach nur über den Trainer. Für Kinder antworten die Eltern, solange das Kind minderjährig ist. Trainer sehen Zähler und Gründe.
 - **Trainer** öffnen ihre Mannschaft und erzeugen dort den Team-Link mit QR-Code. Eltern (oder Spieler selbst) melden sich über den Link an und stellen eine Beitrittsanfrage, die der Trainer freigibt oder ablehnt.
 
+- **Kalender-Abo:** Unter „Einstellungen“ erzeugt jedes Konto je Verein einen geheimen iCal-Link (`/kalender/<token>.ics`) mit den Terminen seiner Mannschaften, vier Wochen zurück bis ein Jahr voraus. Abgesagte Termine bleiben als „Abgesagt“ drin. Gespeichert wird nur der Hash; ein neuer Link macht den alten ungültig.
+
 ### Benachrichtigungen
 
 Per Web Push an alle Geräte, die ein Konto unter „Einstellungen“ freigeschaltet hat, sonst per E-Mail; Terminabsagen kommen immer auch per E-Mail. Push braucht ein VAPID-Schlüsselpaar je Environment (Secret `VAPID_PRIVATE_KEY`, Variable `VAPID_PUBLIC_KEY`); ohne bleibt es bei E-Mail. Auf dem iPhone geht Push nur, wenn Teamtafel auf dem Home-Bildschirm liegt. Jede Benachrichtigung entsteht als Job in derselben Transaktion wie die Änderung; ein Worker im App-Prozess verschickt sie und versucht es bei Fehlern bis zu acht Mal mit wachsendem Abstand.

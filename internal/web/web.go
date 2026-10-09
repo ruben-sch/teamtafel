@@ -67,6 +67,8 @@ type Options struct {
 	// Push ist optional; ohne Abo-Speicher oder VAPIDPublicKey gibt es nur E-Mails.
 	Push           PushAbos
 	VAPIDPublicKey string
+	// Kalender ist optional; ohne gibt es kein iCal-Abo.
+	Kalender Kalender
 	// Superadmins sind die E-Mail-Adressen der Plattform-Admins.
 	Superadmins []string
 	// Scheme für Links in Mails: "https", lokal "http".
@@ -104,7 +106,12 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("POST /auth/{token}", l.einloesen)
 	app.HandleFunc("POST /logout", l.abmelden)
 	statisch(app)
-	e := &einstellungen{vapidKey: o.VAPIDPublicKey}
+	e := &einstellungen{vapidKey: o.VAPIDPublicKey, scheme: o.Scheme}
+	if o.Kalender != nil && o.Termine != nil {
+		e.kalender, e.termine = o.Kalender, o.Termine
+		app.HandleFunc("POST /einstellungen/kalender", e.kalenderErneuern)
+		app.HandleFunc("GET /kalender/{datei}", e.kalenderFeed)
+	}
 	if o.Push != nil && o.VAPIDPublicKey != "" {
 		e.abos = o.Push
 		app.HandleFunc("POST /push/abo", e.abo)

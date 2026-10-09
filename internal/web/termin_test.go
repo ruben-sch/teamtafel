@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ruben-sch/teamtafel/internal/dbtest"
+	"github.com/ruben-sch/teamtafel/internal/kalender"
 	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/termin"
 )
@@ -29,6 +30,7 @@ func neueTerminWelt(t *testing.T) *terminWelt {
 	w := &terminWelt{teamWelt: neueTeamWelt(t), termine: termin.NewStore(dbtest.AppPool(t))}
 	w.h = NewHandler(Options{
 		DB: fakePinger{}, Vereine: w.vereine, Auth: w.auth, Team: w.team, Termine: w.termine, Mailer: w.mailer,
+		Kalender: kalender.NewStore(dbtest.AppPool(t)),
 		BaseHost: "teamtafel.example", Scheme: "https", Version: "test",
 	})
 	ctx := context.Background()
