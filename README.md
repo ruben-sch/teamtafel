@@ -50,7 +50,7 @@ Die Wartung in der App setzt sie stündlich um:
 
 ### Impressum und Datenschutz
 
-`/impressum` und `/datenschutz` sind auf jeder Domain ohne Anmeldung erreichbar und in der Fußzeile verlinkt. Die Betreiberangaben kommen aus den Environment-Variablen `BETREIBER_NAME`, `BETREIBER_ANSCHRIFT` und `BETREIBER_EMAIL` (je Environment, ohne einfache Anführungszeichen). Fehlen sie, zeigen beide Seiten einen Hinweis statt der Angaben.
+`/impressum` und `/datenschutz` sind auf jeder Domain ohne Anmeldung erreichbar und in der Fußzeile verlinkt. Die Betreiberangaben stehen als Standard in `internal/config/config.go`. Die Environment-Variablen `BETREIBER_NAME`, `BETREIBER_ANSCHRIFT` und `BETREIBER_EMAIL` überschreiben sie (ohne einfache Anführungszeichen).
 
 Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.
 
