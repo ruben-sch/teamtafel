@@ -28,7 +28,7 @@ var (
 	slugPattern   = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	saisonPattern = regexp.MustCompile(`^(\d{4})/(\d{2})$`)
 	// Reserviert, weil sie als Subdomain mit Umgebungen oder Diensten kollidieren.
-	reserviert = map[string]bool{"www": true, "staging": true, "api": true, "admin": true, "plattform": true}
+	reserviert = map[string]bool{"www": true, "staging": true, "api": true, "admin": true, "plattform": true, "mail": true}
 )
 
 // Verein ist ein Mandant.

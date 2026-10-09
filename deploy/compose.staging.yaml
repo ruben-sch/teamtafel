@@ -1,5 +1,27 @@
 # Staging liegt hinter der BasicAuth-Middleware "auth" des gemeinsamen Traefik.
+# Mails gehen nicht an Resend, sondern an Mailpit unter https://mail.<APP_HOST>.
 services:
   app:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
     labels:
       - "traefik.http.routers.${STACK}.middlewares=auth@docker"
+
+  mailpit:
+    image: axllent/mailpit
+    environment:
+      MP_MAX_MESSAGES: "500"
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK}-mail.rule=Host(`mail.${APP_HOST}`)"
+      - "traefik.http.routers.${STACK}-mail.tls=true"
+      - "traefik.http.routers.${STACK}-mail.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK}-mail.middlewares=auth@docker"
+      - "traefik.http.services.${STACK}-mail.loadbalancer.server.port=8025"
+    restart: always

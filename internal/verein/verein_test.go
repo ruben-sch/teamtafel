@@ -46,7 +46,7 @@ func TestAnlegenUndFindenPerSlug(t *testing.T) {
 
 func TestAnlegenPrueftSlug(t *testing.T) {
 	store := verein.NewStore(dbtest.AppPool(t))
-	for _, slug := range []string{"", "FC", "fc_x", "-fc", "fc-", "a.b", "staging", "www"} {
+	for _, slug := range []string{"", "FC", "fc_x", "-fc", "fc-", "a.b", "staging", "www", "mail"} {
 		if _, err := store.Anlegen(context.Background(), slug, "X"); !errors.Is(err, verein.ErrUngueltigerSlug) {
 			t.Errorf("slug %q: err = %v, want ErrUngueltigerSlug", slug, err)
 		}

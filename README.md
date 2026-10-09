@@ -48,4 +48,6 @@ Schritte 2 bis 4 erledigt `scripts/setup-github.sh <ssh-private-key> [host] [use
 5. **Claude-Review**: Repo-Secret `CLAUDE_CODE_OAUTH_TOKEN` setzen (Token per `claude setup-token`, dann `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R ruben-sch/teamtafel`).
 6. Nach dem ersten Push das GHCR-Paket prüfen (Sichtbarkeit privat genügt, der Deploy loggt sich mit dem Workflow-Token ein).
 
+Auf Staging gehen keine echten Mails raus: Ein Mailpit fängt sie ab, erreichbar unter `https://mail.staging.teamtafel.schwarzpost.de` (gleiche BasicAuth). Dafür braucht es den DNS-Wildcard-Eintrag `*.staging.teamtafel.schwarzpost.de`.
+
 Hinweis: Die App-Rolle `teamtafel_app` wird nur beim ersten Start der Datenbank angelegt. Ein späterer Wechsel von `APP_DB_PASSWORD` muss per `ALTER ROLE` nachgezogen werden.
