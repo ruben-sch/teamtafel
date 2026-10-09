@@ -1,0 +1,6 @@
+{{template "kopf" .}}
+    <h1>Anmelden</h1>
+    <form method="post" action="/auth/{{.Token}}">
+      <button>Jetzt anmelden</button>
+    </form>
+{{template "fuss" .}}

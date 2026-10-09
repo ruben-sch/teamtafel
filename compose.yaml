@@ -26,6 +26,10 @@ services:
     environment:
       DATABASE_URL: postgres://teamtafel_app:teamtafel_app@db:5432/teamtafel?sslmode=disable
       MIGRATE_DATABASE_URL: postgres://teamtafel:teamtafel@db:5432/teamtafel?sslmode=disable
+      APP_HOST: localhost
+      APP_SCHEME: http
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
     ports:
       - "8080:8080"
     depends_on:
@@ -36,6 +40,7 @@ services:
     image: axllent/mailpit
     ports:
       - "8025:8025"
+      - "1025:1025"
 
 volumes:
   db_data:

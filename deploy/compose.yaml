@@ -32,6 +32,12 @@ services:
       DATABASE_URL: postgres://teamtafel_app:${APP_DB_PASSWORD}@db:5432/teamtafel?sslmode=disable
       MIGRATE_DATABASE_URL: postgres://teamtafel:${POSTGRES_PASSWORD}@db:5432/teamtafel?sslmode=disable
       APP_HOST: ${APP_HOST:?}
+      # Resend per SMTP. Ohne SMTP_PASSWORD startet die App, Login-Mails schlagen aber fehl.
+      SMTP_HOST: smtp.resend.com
+      SMTP_PORT: "587"
+      SMTP_USER: resend
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Teamtafel <noreply@teamtafel.schwarzpost.de>}
     networks:
       - default
       - proxy

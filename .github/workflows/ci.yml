@@ -22,8 +22,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      mailpit:
+        image: axllent/mailpit
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/teamtafel_test?sslmode=disable
+      TEST_SMTP_ADDR: localhost:1025
+      TEST_MAILPIT_URL: http://localhost:8025
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

@@ -1,0 +1,32 @@
+{{define "kopf"}}<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if .Titel}}{{.Titel}} · {{end}}Teamtafel</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; background: #f6f7f9; color: #1d2330; }
+    main { max-width: 32rem; margin: 0 auto; }
+    h1 { margin: 0 0 .5rem; }
+    .leise { color: #5b6475; font-size: .875rem; }
+    .fehler { color: #b42318; }
+    input[type=email] { width: 100%; box-sizing: border-box; padding: .6rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
+    button { margin-top: .75rem; padding: .6rem 1rem; font-size: 1rem; border: 0; border-radius: .4rem; background: #1f6feb; color: #fff; }
+    button.leise { background: none; color: inherit; padding: 0; text-decoration: underline; }
+    form.inline { display: inline; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #12151b; color: #e6e9ef; }
+      .leise { color: #9aa3b5; }
+      input[type=email] { background: #1b1f27; color: inherit; border-color: #39404d; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+{{end}}
+
+{{define "fuss"}}
+  </main>
+</body>
+</html>
+{{end}}

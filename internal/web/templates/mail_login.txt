@@ -1,0 +1,8 @@
+Hallo,
+
+mit diesem Link meldest du dich bei Teamtafel an:
+
+{{.Link}}
+
+Der Link ist 15 Minuten gültig und funktioniert einmal.
+Wenn du das nicht angefordert hast, ignoriere diese Mail einfach.

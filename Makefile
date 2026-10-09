@@ -16,7 +16,8 @@ test: ## Alle Tests inkl. Integration gegen die lokale Datenbank
 	docker compose up -d --wait db
 	docker compose exec -T db psql -U teamtafel -d teamtafel -tc "SELECT 1 FROM pg_database WHERE datname='teamtafel_test'" | grep -q 1 \
 		|| docker compose exec -T db createdb -U teamtafel teamtafel_test
-	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race ./...
+	docker compose up -d --wait mailpit
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" TEST_SMTP_ADDR=localhost:1025 TEST_MAILPIT_URL=http://localhost:8025 go test -race ./...
 
 test-unit: ## Nur Tests ohne Datenbank
 	go test -race ./...
