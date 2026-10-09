@@ -20,7 +20,8 @@ jobs:
       - uses: googleapis/release-please-action@v5
         id: release
         with:
-          release-type: go
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
   deploy-release:
     needs: release-please
