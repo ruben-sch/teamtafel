@@ -14,6 +14,22 @@
     <h1>Teamtafel</h1>
     <p>Hallo! Hier entsteht die Teamverwaltung für unseren Verein.</p>
     {{- end}}
+    {{- if .Trainer}}
+    <h2>Meine Mannschaften</h2>
+    <ul>
+      {{- range .Trainer}}
+      <li><a href="/m/{{.ID}}">{{.Name}}</a> <span class="leise">{{.Saison}}</span></li>
+      {{- end}}
+    </ul>
+    {{- end}}
+    {{- if .Spieler}}
+    <h2>Meine Spieler</h2>
+    <ul>
+      {{- range .Spieler}}
+      <li>{{.Vorname}} {{.Nachname}}{{if .Selbst}} <span class="leise">(du)</span>{{end}}</li>
+      {{- end}}
+    </ul>
+    {{- end}}
     {{- if .Konto}}
     <p>Angemeldet als {{.Konto.Email}}.
       <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form></p>

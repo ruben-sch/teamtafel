@@ -1,6 +1,7 @@
 {{template "kopf" .}}
     <h1>Anmelden</h1>
     <form method="post" action="/auth/{{.Token}}">
+      <input type="hidden" name="weiter" value="{{.Weiter}}">
       <button>Jetzt anmelden</button>
     </form>
 {{template "fuss" .}}

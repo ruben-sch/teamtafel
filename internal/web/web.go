@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ruben-sch/teamtafel/internal/auth"
+	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
 
@@ -52,6 +53,8 @@ type Options struct {
 	Vereine Vereine
 	Auth    Auth
 	Mailer  Mailer
+	// Team ist optional; ohne fehlen die Mannschafts- und Beitrittsseiten.
+	Team Team
 	// Scheme für Links in Mails: "https", lokal "http".
 	Scheme string
 	// BaseHost ist die Hauptdomain, z. B. teamtafel.schwarzpost.de.
@@ -80,6 +83,15 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("GET /auth/{token}", l.bestaetigen)
 	app.HandleFunc("POST /auth/{token}", l.einloesen)
 	app.HandleFunc("POST /logout", l.abmelden)
+	if o.Team != nil {
+		t := &teamSeiten{team: o.Team, scheme: o.Scheme}
+		app.HandleFunc("GET /m/{id}", t.mannschaft)
+		app.HandleFunc("POST /m/{id}/einladung", t.einladung)
+		app.HandleFunc("GET /join/{token}", t.joinFormular)
+		app.HandleFunc("POST /join/{token}", t.joinAnfragen)
+		app.HandleFunc("POST /anfragen/{id}/freigeben", t.anfrageEntscheiden(t.freigeben))
+		app.HandleFunc("POST /anfragen/{id}/ablehnen", t.anfrageEntscheiden(t.ablehnen))
+	}
 
 	root := http.NewServeMux()
 	// Ohne Mandantenauflösung, weil der Docker-Healthcheck localhost aufruft.
@@ -98,6 +110,8 @@ func index(o Options) http.HandlerFunc {
 			Version      string
 			Verein       *verein.Verein
 			Mannschaften []verein.Mannschaft
+			Trainer      []verein.Mannschaft
+			Spieler      []team.Spieler
 			Konto        *auth.Konto
 		}{Version: o.Version}
 		if k, ok := kontoAus(r.Context()); ok {
@@ -112,6 +126,16 @@ func index(o Options) http.HandlerFunc {
 				return
 			}
 			data.Verein, data.Mannschaften, data.Titel = &v, ms, v.Name
+			if data.Konto != nil && o.Team != nil {
+				if data.Trainer, err = o.Team.TrainerMannschaften(r.Context(), v.ID, data.Konto.ID); err != nil {
+					interner(w, "trainer-mannschaften laden", err)
+					return
+				}
+				if data.Spieler, err = o.Team.MeineSpieler(r.Context(), v.ID, data.Konto.ID); err != nil {
+					interner(w, "eigene spieler laden", err)
+					return
+				}
+			}
 		}
 		render(w, "index.html", data)
 	}
