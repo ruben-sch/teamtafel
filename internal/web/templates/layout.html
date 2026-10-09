@@ -19,9 +19,22 @@
     .karte { background: rgba(127,127,127,.08); border-radius: .5rem; padding: .75rem 1rem; margin: .75rem 0; }
     button.zweit { background: #5b6475; }
     .qr { width: 16rem; max-width: 100%; display: block; margin: 1rem 0; }
-    a.termin { display: block; color: inherit; text-decoration: none; padding: .6rem .8rem; margin: .4rem 0; border-radius: .5rem; background: rgba(127,127,127,.08); }
-    a.termin .wann { display: block; font-weight: 600; }
-    a.termin.abgesagt span { text-decoration: line-through; }
+    .termin { padding: .6rem .8rem; margin: .4rem 0; border-radius: .5rem; background: rgba(127,127,127,.08); }
+    .termin > a { display: block; color: inherit; text-decoration: none; }
+    .termin .wann { display: block; font-weight: 600; }
+    .termin.abgesagt .was, .termin.abgesagt .wann { text-decoration: line-through; }
+    .termin .zaehler { margin: .25rem 0 0; }
+    .antwort { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .4rem; }
+    .antwort form { display: flex; gap: .4rem; }
+    .antwort button { margin: 0; padding: .55rem 1.1rem; background: transparent; color: inherit; border: 2px solid #c5cad3; }
+    .antwort button.zu.aktiv { background: #1a7f37; border-color: #1a7f37; color: #fff; }
+    .antwort button.ab.aktiv { background: #b42318; border-color: #b42318; color: #fff; }
+    ul.team { padding-left: 1.2rem; }
+    ul.team li { margin: .3rem 0; }
+    ul.team button.leise { margin: 0 0 0 .5rem; }
+    .antwort select { flex: 1; min-width: 0; }
+    .status-zu { color: #1a7f37; }
+    .status-ab { color: #b42318; }
     input[type=date], input[type=time], input[type=datetime-local], select { padding: .5rem; font-size: 1rem; border: 1px solid #c5cad3; border-radius: .4rem; }
     .zeile { display: flex; gap: .75rem; flex-wrap: wrap; }
     .zeile > div { flex: 1 1 7rem; }
@@ -40,11 +53,29 @@
 {{end}}
 
 {{define "terminzeile"}}
-    <a class="termin{{if .Abgesagt}} abgesagt{{end}}" href="/t/{{.ID}}">
-      <span class="wann">{{datum .Beginn}}, {{uhrzeit .Beginn}}</span>
-      <span>{{typName .Typ}}{{if .Titel}} {{.Titel}}{{end}} <span class="leise">{{.Mannschaft}}{{if .Ort}} · {{.Ort}}{{end}}</span></span>
-      {{- if .Abgesagt}} <strong class="fehler">Abgesagt</strong>{{end}}
-    </a>
+    <div class="termin{{if .Abgesagt}} abgesagt{{end}}">
+      <a href="/t/{{.ID}}">
+        <span class="wann">{{datum .Beginn}}, {{uhrzeit .Beginn}}</span>
+        <span class="was">{{typName .Typ}}{{if .Titel}} {{.Titel}}{{end}} <span class="leise">{{.Mannschaft}}{{if .Ort}} · {{.Ort}}{{end}}</span></span>
+        {{- if .Abgesagt}} <strong class="fehler">Abgesagt</strong>{{end}}
+      </a>
+      {{- if and .Zaehler (not .Abgesagt)}}
+      <p class="leise zaehler">{{.Zu}} zu · {{.Ab}} ab · {{.Offen}} offen</p>
+      {{- end}}
+      {{- $k := .}}
+      {{- range .Meine}}
+      <div class="antwort">
+        <span>{{.Vorname}}: {{statusText .Status}}</span>
+        {{- if $k.Moeglich}}
+        <form method="post" action="/t/{{$k.ID}}/rueckmeldung/{{.SpielerID}}">
+          <input type="hidden" name="zurueck" value="/">
+          <button name="status" value="zu" class="zu{{if eq .Status "zu"}} aktiv{{end}}">Zu</button>
+          <button name="status" value="ab" class="ab{{if eq .Status "ab"}} aktiv{{end}}">Ab</button>
+        </form>
+        {{- end}}
+      </div>
+      {{- end}}
+    </div>
 {{end}}
 
 {{define "fuss"}}

@@ -80,6 +80,8 @@ type Termin struct {
 	Daten
 	Abgesagt   bool
 	Bearbeitet bool
+	// Zähler über den Kader der Mannschaft.
+	Zu, Ab, Offen int
 }
 
 // SerieDaten beschreiben ein wöchentliches Training.
@@ -192,12 +194,19 @@ func (s *Store) Absagen(ctx context.Context, vereinID, terminID string) error {
 }
 
 const terminSpalten = `t.id::text, t.mannschaft_id::text, m.name, coalesce(t.serie_id::text, ''), t.typ, t.titel,
-	t.beginn, t.ende, t.treffzeit, t.frist, t.ort, t.treffpunkt, t.abgesagt, t.bearbeitet`
+	t.beginn, t.ende, t.treffzeit, t.frist, t.ort, t.treffpunkt, t.abgesagt, t.bearbeitet,
+	(SELECT count(*) FILTER (WHERE r.status = 'zu') FROM rueckmeldung r JOIN kader k ON k.spieler_id = r.spieler_id
+		AND k.mannschaft_id = t.mannschaft_id WHERE r.termin_id = t.id),
+	(SELECT count(*) FILTER (WHERE r.status = 'ab') FROM rueckmeldung r JOIN kader k ON k.spieler_id = r.spieler_id
+		AND k.mannschaft_id = t.mannschaft_id WHERE r.termin_id = t.id),
+	(SELECT count(*) FROM kader k WHERE k.mannschaft_id = t.mannschaft_id)`
 
 func scanTermin(r pgx.CollectableRow) (Termin, error) {
 	var t Termin
 	err := r.Scan(&t.ID, &t.MannschaftID, &t.Mannschaft, &t.SerieID, &t.Typ, &t.Titel,
-		&t.Beginn, &t.Ende, &t.Treffzeit, &t.Frist, &t.Ort, &t.Treffpunkt, &t.Abgesagt, &t.Bearbeitet)
+		&t.Beginn, &t.Ende, &t.Treffzeit, &t.Frist, &t.Ort, &t.Treffpunkt, &t.Abgesagt, &t.Bearbeitet,
+		&t.Zu, &t.Ab, &t.Offen)
+	t.Offen -= t.Zu + t.Ab
 	t.Beginn, t.Ende = t.Beginn.In(Zeitzone), t.Ende.In(Zeitzone)
 	for _, p := range []*time.Time{t.Treffzeit, t.Frist} {
 		if p != nil {
@@ -370,7 +379,8 @@ func scanSerie(r pgx.CollectableRow) (Serie, error) {
 	return sr, err
 }
 
-// SerieBeenden stoppt die Serie und löscht ihre künftigen, nicht einzeln bearbeiteten Termine.
+// SerieBeenden stoppt die Serie und löscht ihre künftigen Termine, außer einzeln bearbeiteten
+// und solchen mit Rückmeldungen; die sagt der Trainer bei Bedarf selbst ab.
 func (s *Store) SerieBeenden(ctx context.Context, vereinID, serieID string) error {
 	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE terminserie SET beendet_am = $2 WHERE id = $1 AND beendet_am IS NULL`, serieID, s.Now())
@@ -380,7 +390,8 @@ func (s *Store) SerieBeenden(ctx context.Context, vereinID, serieID string) erro
 		if tag.RowsAffected() == 0 {
 			return ErrNotFound
 		}
-		_, err = tx.Exec(ctx, `DELETE FROM termin WHERE serie_id = $1 AND beginn > $2 AND NOT bearbeitet`, serieID, s.Now())
+		_, err = tx.Exec(ctx, `DELETE FROM termin t WHERE serie_id = $1 AND beginn > $2 AND NOT bearbeitet
+			AND NOT EXISTS (SELECT 1 FROM rueckmeldung r WHERE r.termin_id = t.id)`, serieID, s.Now())
 		return err
 	})
 }

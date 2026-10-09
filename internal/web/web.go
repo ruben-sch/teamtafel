@@ -12,7 +12,6 @@ import (
 
 	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/team"
-	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
 
@@ -118,6 +117,7 @@ func NewHandler(o Options) http.Handler {
 			app.HandleFunc("GET /t/{id}", t.terminDetail)
 			app.HandleFunc("POST /t/{id}", t.terminAendern)
 			app.HandleFunc("POST /t/{id}/absagen", t.terminAbsagen)
+			app.HandleFunc("POST /t/{id}/rueckmeldung/{spieler}", t.rueckmelden)
 		}
 
 		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, rollen: rollen, scheme: o.Scheme}
@@ -148,7 +148,7 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 			Mannschaften []verein.Mannschaft
 			Trainer      []verein.Mannschaft
 			Spieler      []team.Spieler
-			Termine      []termin.Termin
+			Termine      []terminKarte
 			Konto        *auth.Konto
 			Admin        bool
 		}{Version: o.Version}
@@ -181,7 +181,11 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 				}
 				if o.Termine != nil {
 					ab := heute()
-					if data.Termine, err = o.Termine.FuerKonto(r.Context(), v.ID, data.Konto.ID, ab, ab.AddDate(0, 0, 28)); err != nil {
+					ts, err := o.Termine.FuerKonto(r.Context(), v.ID, data.Konto.ID, ab, ab.AddDate(0, 0, 28))
+					if err == nil {
+						data.Termine, err = karten(r.Context(), o.Termine, v.ID, data.Konto.ID, ts, false)
+					}
+					if err != nil {
 						interner(w, "termine laden", err)
 						return
 					}
