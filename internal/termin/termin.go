@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ruben-sch/teamtafel/internal/db"
+	"github.com/ruben-sch/teamtafel/internal/nachricht"
 )
 
 // Typ eines Termins.
@@ -147,17 +148,31 @@ func (s *Store) inVerein(ctx context.Context, vereinID string, fn func(pgx.Tx) e
 	return db.InVerein(ctx, s.pool, vereinID, fn)
 }
 
-// Anlegen legt einen Einzeltermin an.
-func (s *Store) Anlegen(ctx context.Context, vereinID, mannschaftID string, d Daten) (Termin, error) {
+// Anlegen legt einen Einzeltermin an und benachrichtigt das Team, sofern er in der Zukunft liegt.
+func (s *Store) Anlegen(ctx context.Context, vereinID, mannschaftID, vonKontoID string, d Daten) (Termin, error) {
 	if err := d.pruefen(); err != nil {
 		return Termin{}, err
 	}
 	t := Termin{MannschaftID: mannschaftID, Daten: d}
+	jetzt := s.Now()
+	// Liegt die Frist schon in weniger als ErinnerungVorher, ersetzt die Neu-Nachricht die Erinnerung.
+	var erinnert *time.Time
+	if !frist(d).After(jetzt.Add(ErinnerungVorher)) {
+		erinnert = &jetzt
+	}
 	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `
-INSERT INTO termin (verein_id, mannschaft_id, typ, titel, beginn, ende, treffzeit, frist, ort, treffpunkt)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text`,
-			vereinID, mannschaftID, d.Typ, d.Titel, d.Beginn, d.Ende, d.Treffzeit, d.Frist, d.Ort, d.Treffpunkt).Scan(&t.ID)
+		err := tx.QueryRow(ctx, `
+INSERT INTO termin (verein_id, mannschaft_id, typ, titel, beginn, ende, treffzeit, frist, ort, treffpunkt, erinnert_am)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id::text`,
+			vereinID, mannschaftID, d.Typ, d.Titel, d.Beginn, d.Ende, d.Treffzeit, d.Frist, d.Ort, d.Treffpunkt, erinnert).Scan(&t.ID)
+		if err != nil || !d.Beginn.After(jetzt) {
+			return err
+		}
+		return s.anTeam(ctx, tx, vereinID, mannschaftID, vonKontoID, nachricht.Inhalt{
+			Betreff: "Neu: " + kurz(d),
+			Text:    "Neuer Termin, bitte sag zu oder ab.\n\n" + details(d),
+			Pfad:    "/t/" + t.ID,
+		})
 	})
 	if err != nil {
 		return Termin{}, fmt.Errorf("termin anlegen: %w", err)
@@ -166,30 +181,77 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text`,
 }
 
 // Aendern überschreibt die Angaben; Serientermine gelten danach als einzeln bearbeitet.
-func (s *Store) Aendern(ctx context.Context, vereinID, terminID string, d Daten) error {
+// Ändern sich Zeit oder Ort eines künftigen Termins, wird das Team benachrichtigt.
+func (s *Store) Aendern(ctx context.Context, vereinID, terminID, vonKontoID string, d Daten) error {
 	if err := d.pruefen(); err != nil {
 		return err
 	}
+	jetzt := s.Now()
 	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `
-UPDATE termin SET typ = $2, titel = $3, beginn = $4, ende = $5, treffzeit = $6, frist = $7, ort = $8, treffpunkt = $9,
-	bearbeitet = true
-WHERE id = $1`, terminID, d.Typ, d.Titel, d.Beginn, d.Ende, d.Treffzeit, d.Frist, d.Ort, d.Treffpunkt)
-		if err == nil && tag.RowsAffected() == 0 {
+		var alt Daten
+		var mannschaftID string
+		var abgesagt bool
+		err := tx.QueryRow(ctx, `
+SELECT mannschaft_id::text, beginn, ende, treffzeit, frist, ort, treffpunkt, abgesagt FROM termin WHERE id = $1 FOR UPDATE`,
+			terminID).Scan(&mannschaftID, &alt.Beginn, &alt.Ende, &alt.Treffzeit, &alt.Frist, &alt.Ort, &alt.Treffpunkt, &abgesagt)
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
-		return err
+		if err != nil {
+			return err
+		}
+		// Neue Frist mit genug Vorlauf: Erinnerung wieder zulassen.
+		_, err = tx.Exec(ctx, `
+UPDATE termin SET typ = $2, titel = $3, beginn = $4, ende = $5, treffzeit = $6, frist = $7, ort = $8, treffpunkt = $9,
+	bearbeitet = true,
+	erinnert_am = CASE WHEN coalesce($7::timestamptz, $4::timestamptz) IS DISTINCT FROM coalesce(frist, beginn)
+		AND coalesce($7::timestamptz, $4::timestamptz) > $10::timestamptz
+		THEN NULL ELSE erinnert_am END
+WHERE id = $1`, terminID, d.Typ, d.Titel, d.Beginn, d.Ende, d.Treffzeit, d.Frist, d.Ort, d.Treffpunkt,
+			jetzt.Add(ErinnerungVorher))
+		if err != nil || abgesagt || !zeitOderOrtGeaendert(alt, d) || (!alt.Beginn.After(jetzt) && !d.Beginn.After(jetzt)) {
+			return err
+		}
+		return s.anTeam(ctx, tx, vereinID, mannschaftID, vonKontoID, nachricht.Inhalt{
+			Betreff: "Geändert: " + kurz(d),
+			Text:    "Der Termin hat sich geändert.\n\n" + details(d),
+			Pfad:    "/t/" + terminID,
+		})
 	})
 }
 
-// Absagen markiert den Termin als ausgefallen; er bleibt sichtbar.
-func (s *Store) Absagen(ctx context.Context, vereinID, terminID string) error {
+func zeitOderOrtGeaendert(a, b Daten) bool {
+	gleich := func(x, y *time.Time) bool { return (x == nil) == (y == nil) && (x == nil || x.Equal(*y)) }
+	return !a.Beginn.Equal(b.Beginn) || !a.Ende.Equal(b.Ende) || !gleich(a.Treffzeit, b.Treffzeit) ||
+		a.Ort != b.Ort || a.Treffpunkt != b.Treffpunkt
+}
+
+// Absagen markiert den Termin als ausgefallen; er bleibt sichtbar. Das Team wird benachrichtigt.
+func (s *Store) Absagen(ctx context.Context, vereinID, terminID, vonKontoID string) error {
 	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE termin SET abgesagt = true, bearbeitet = true WHERE id = $1`, terminID)
-		if err == nil && tag.RowsAffected() == 0 {
+		var d Daten
+		var mannschaftID string
+		var schonAbgesagt bool
+		err := tx.QueryRow(ctx, `
+SELECT abgesagt, mannschaft_id::text, typ, titel, beginn, ende FROM termin WHERE id = $1 FOR UPDATE`, terminID).
+			Scan(&schonAbgesagt, &mannschaftID, &d.Typ, &d.Titel, &d.Beginn, &d.Ende)
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
-		return err
+		if err != nil || schonAbgesagt {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE termin SET abgesagt = true, bearbeitet = true WHERE id = $1`, terminID); err != nil {
+			return err
+		}
+		if !d.Beginn.After(s.Now()) {
+			return nil
+		}
+		return s.anTeam(ctx, tx, vereinID, mannschaftID, vonKontoID, nachricht.Inhalt{
+			Betreff: "Abgesagt: " + kurz(d),
+			Text:    kurz(d) + " fällt aus.",
+			Pfad:    "/t/" + terminID,
+		})
 	})
 }
 

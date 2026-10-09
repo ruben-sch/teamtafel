@@ -40,6 +40,8 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Teamtafel <teamtafel@schwarzpost.de>}
       # Plattform-Admins (Verwaltung unter APP_HOST/admin).
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
+      # Staging: Benachrichtigungen nur an diese Adressen; leer heißt alle.
+      MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
     networks:
       - default
       - proxy

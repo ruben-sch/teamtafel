@@ -225,3 +225,22 @@ func TestTrainerListeUndEntfernen(t *testing.T) {
 		t.Fatal("noch trainer nach entfernen")
 	}
 }
+
+func TestNeueAnfrageBenachrichtigtTrainerEinmal(t *testing.T) {
+	f := setup(t)
+	for range 2 {
+		if _, err := f.store.AnfrageStellen(f.ctx, f.verein.ID, f.bambini.ID, f.eltern.ID,
+			team.AnfrageDaten{Art: team.ArtKind, Vorname: "Mia", Nachname: "Muster", Jahrgang: 2020}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, _ := f.pool.Query(f.ctx, `SELECT payload->>'betreff' FROM job WHERE art = 'nachricht' AND payload->>'konto_id' = $1`,
+		f.trainer.ID)
+	betreffe, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "Bambini: Neue Beitrittsanfrage für Mia"; len(betreffe) != 1 || betreffe[0] != want {
+		t.Errorf("betreffe = %q, want [%q]", betreffe, want)
+	}
+}

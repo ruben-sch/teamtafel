@@ -64,7 +64,7 @@ func beiBerlin(y int, m time.Month, d, h, min int) time.Time {
 func (f *fixture) einzel(t *testing.T) termin.Termin {
 	t.Helper()
 	treff := beiBerlin(2026, 10, 17, 9, 15)
-	tm, err := f.store.Anlegen(f.ctx, f.verein.ID, f.mannschaft.ID, termin.Daten{
+	tm, err := f.store.Anlegen(f.ctx, f.verein.ID, f.mannschaft.ID, "", termin.Daten{
 		Typ: termin.TypSpiel, Titel: "gegen SV Nachbar", Beginn: beiBerlin(2026, 10, 17, 10, 0),
 		Ende: beiBerlin(2026, 10, 17, 11, 30), Treffzeit: &treff, Ort: "Sportplatz", Treffpunkt: "Vereinsheim",
 	})
@@ -90,10 +90,10 @@ func TestEinzelterminAnlegenAendernAbsagen(t *testing.T) {
 	d := got.Daten
 	d.Ort = "Kunstrasen"
 	d.Treffzeit = nil
-	if err := f.store.Aendern(f.ctx, f.verein.ID, tm.ID, d); err != nil {
+	if err := f.store.Aendern(f.ctx, f.verein.ID, tm.ID, "", d); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.store.Absagen(f.ctx, f.verein.ID, tm.ID); err != nil {
+	if err := f.store.Absagen(f.ctx, f.verein.ID, tm.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = f.store.Termin(f.ctx, f.verein.ID, tm.ID)
@@ -116,7 +116,7 @@ func TestTerminValidierung(t *testing.T) {
 		"treff nach start": {Typ: termin.TypTraining, Beginn: b, Ende: b.Add(2 * time.Hour), Treffzeit: &spaet},
 		"frist nach start": {Typ: termin.TypTraining, Beginn: b, Ende: b.Add(2 * time.Hour), Frist: &spaet},
 	} {
-		if _, err := f.store.Anlegen(f.ctx, f.verein.ID, f.mannschaft.ID, d); !errors.Is(err, termin.ErrUngueltig) {
+		if _, err := f.store.Anlegen(f.ctx, f.verein.ID, f.mannschaft.ID, "", d); !errors.Is(err, termin.ErrUngueltig) {
 			t.Errorf("%s: err = %v", name, err)
 		}
 	}
@@ -181,7 +181,7 @@ func TestSerieBeendenBehaeltBearbeiteteTermine(t *testing.T) {
 	ts, _ := f.store.Kommende(f.ctx, f.verein.ID, f.mannschaft.ID, f.jetzt, f.jetzt.AddDate(1, 0, 0))
 	verschoben := ts[1].Daten
 	verschoben.Beginn, verschoben.Ende = verschoben.Beginn.Add(time.Hour), verschoben.Ende.Add(time.Hour)
-	if err := f.store.Aendern(f.ctx, f.verein.ID, ts[1].ID, verschoben); err != nil {
+	if err := f.store.Aendern(f.ctx, f.verein.ID, ts[1].ID, "", verschoben); err != nil {
 		t.Fatal(err)
 	}
 

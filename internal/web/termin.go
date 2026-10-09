@@ -17,9 +17,9 @@ import (
 
 // Termine verwaltet Termine und Serien.
 type Termine interface {
-	Anlegen(ctx context.Context, vereinID, mannschaftID string, d termin.Daten) (termin.Termin, error)
-	Aendern(ctx context.Context, vereinID, terminID string, d termin.Daten) error
-	Absagen(ctx context.Context, vereinID, terminID string) error
+	Anlegen(ctx context.Context, vereinID, mannschaftID, vonKontoID string, d termin.Daten) (termin.Termin, error)
+	Aendern(ctx context.Context, vereinID, terminID, vonKontoID string, d termin.Daten) error
+	Absagen(ctx context.Context, vereinID, terminID, vonKontoID string) error
 	Termin(ctx context.Context, vereinID, terminID string) (termin.Termin, error)
 	Kommende(ctx context.Context, vereinID, mannschaftID string, ab, bis time.Time) ([]termin.Termin, error)
 	FuerKonto(ctx context.Context, vereinID, kontoID string, ab, bis time.Time) ([]termin.Termin, error)
@@ -69,26 +69,16 @@ func karten(ctx context.Context, ts Termine, vereinID, kontoID string, termine [
 	return out, nil
 }
 
-var wochentage = [...]string{"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"}
-
 var funcs = template.FuncMap{
 	// datum: "Di, 13.10.2026"
 	"datum": func(t time.Time) string {
 		t = t.In(termin.Zeitzone)
-		return wochentage[t.Weekday()][:2] + ", " + t.Format("02.01.2006")
+		return termin.Wochentage[t.Weekday()][:2] + ", " + t.Format("02.01.2006")
 	},
 	"uhrzeit":   func(t time.Time) string { return t.In(termin.Zeitzone).Format("15:04") },
-	"wochentag": func(w time.Weekday) string { return wochentage[w] },
-	"typName": func(typ string) string {
-		switch typ {
-		case termin.TypSpiel:
-			return "Spiel"
-		case termin.TypSonstiges:
-			return "Termin"
-		}
-		return "Training"
-	},
-	"minuten": func(d time.Duration) int { return int(d.Minutes()) },
+	"wochentag": func(w time.Weekday) string { return termin.Wochentage[w] },
+	"typName":   termin.TypName,
+	"minuten":   func(d time.Duration) int { return int(d.Minutes()) },
 	"statusText": func(s string) string {
 		switch s {
 		case termin.Zu:
@@ -275,7 +265,7 @@ func (s *teamSeiten) terminNeu(w http.ResponseWriter, r *http.Request) {
 
 func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	v, _, ok := s.verwalterVon(w, r, id)
+	v, k, ok := s.verwalterVon(w, r, id)
 	if !ok {
 		return
 	}
@@ -283,7 +273,7 @@ func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
 	d, err := f.daten()
 	var t termin.Termin
 	if err == nil {
-		t, err = s.termine.Anlegen(r.Context(), v.ID, id, d)
+		t, err = s.termine.Anlegen(r.Context(), v.ID, id, k.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
 		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: f, Serie: serieForm{Wochentag: "1", Dauer: "90",
@@ -492,7 +482,8 @@ func (s *teamSeiten) terminAendern(w http.ResponseWriter, r *http.Request) {
 	f := terminFormLesen(r)
 	d, err := f.daten()
 	if err == nil {
-		err = s.termine.Aendern(r.Context(), v.ID, t.ID, d)
+		k, _ := kontoAus(r.Context())
+		err = s.termine.Aendern(r.Context(), v.ID, t.ID, k.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
 		s.terminSeiteZeigen(w, r, v, http.StatusBadRequest, terminSeite{Termin: t, Verwalter: true, Form: f, Fehler: terminFehler})
@@ -510,7 +501,8 @@ func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.termine.Absagen(r.Context(), v.ID, t.ID); err != nil {
+	k, _ := kontoAus(r.Context())
+	if err := s.termine.Absagen(r.Context(), v.ID, t.ID, k.ID); err != nil {
 		interner(w, "termin absagen", err)
 		return
 	}
