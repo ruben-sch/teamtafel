@@ -30,6 +30,8 @@ services:
       APP_SCHEME: http
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
+      # Lokal ist admin@example.org Plattform-Admin; die Login-Mail landet in Mailpit.
+      SUPERADMIN_EMAILS: admin@example.org
     ports:
       - "8080:8080"
     depends_on:

@@ -83,6 +83,38 @@ func (s *Store) TrainerHinzufuegen(ctx context.Context, vereinID, mannschaftID, 
 	})
 }
 
+// Trainer ist ein Konto mit Trainerrolle in einer Mannschaft.
+type Trainer struct {
+	KontoID string
+	Email   string
+}
+
+// Trainer listet die Trainer einer Mannschaft.
+func (s *Store) Trainer(ctx context.Context, vereinID, mannschaftID string) ([]Trainer, error) {
+	var out []Trainer
+	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT k.id::text, k.email FROM trainer t JOIN konto k ON k.id = t.konto_id
+			WHERE t.mannschaft_id = $1 ORDER BY k.email`, mannschaftID)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Trainer, error) {
+			var t Trainer
+			return t, r.Scan(&t.KontoID, &t.Email)
+		})
+		return err
+	})
+	return out, err
+}
+
+// TrainerEntfernen nimmt einem Konto die Trainerrolle in der Mannschaft.
+func (s *Store) TrainerEntfernen(ctx context.Context, vereinID, mannschaftID, kontoID string) error {
+	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `DELETE FROM trainer WHERE mannschaft_id = $1 AND konto_id = $2`, mannschaftID, kontoID)
+		return err
+	})
+}
+
 // IstTrainer prüft, ob das Konto Trainer der Mannschaft ist.
 func (s *Store) IstTrainer(ctx context.Context, vereinID, mannschaftID, kontoID string) (bool, error) {
 	var ok bool

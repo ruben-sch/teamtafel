@@ -24,6 +24,8 @@ type Config struct {
 	SMTPHost, SMTPPort, SMTPUser, SMTPPassword string
 	// MailFrom ist der Absender, z. B. "Teamtafel <noreply@teamtafel.schwarzpost.de>".
 	MailFrom string
+	// Superadmins sind die Plattform-Admins (SUPERADMIN_EMAILS, durch Komma oder Leerzeichen getrennt).
+	Superadmins []string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -42,6 +44,9 @@ func FromEnv(version string) (Config, error) {
 		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
 		MailFrom:           os.Getenv("MAIL_FROM"),
 		Version:            version,
+		Superadmins: strings.FieldsFunc(os.Getenv("SUPERADMIN_EMAILS"), func(r rune) bool {
+			return r == ',' || r == ' ' || r == ';'
+		}),
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL ist nicht gesetzt")

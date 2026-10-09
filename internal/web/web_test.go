@@ -31,6 +31,19 @@ func (f fakeVereine) Mannschaften(_ context.Context, vereinID string) ([]verein.
 	return f.mannschaften[vereinID], nil
 }
 
+func (f fakeVereine) Alle(context.Context) ([]verein.Verein, error) { return nil, nil }
+func (f fakeVereine) Anlegen(context.Context, string, string) (verein.Verein, error) {
+	return verein.Verein{}, errors.ErrUnsupported
+}
+func (f fakeVereine) MannschaftAnlegen(context.Context, string, string, string) (verein.Mannschaft, error) {
+	return verein.Mannschaft{}, errors.ErrUnsupported
+}
+func (f fakeVereine) AdminHinzufuegen(context.Context, string, string) error {
+	return errors.ErrUnsupported
+}
+func (f fakeVereine) IstAdmin(context.Context, string, string) (bool, error) { return false, nil }
+func (f fakeVereine) Admins(context.Context, string) ([]string, error)       { return nil, nil }
+
 func testHandler(p Pinger) http.Handler {
 	return NewHandler(Options{
 		DB:       p,

@@ -30,6 +30,9 @@
       {{- end}}
     </ul>
     {{- end}}
+    {{- if .Admin}}
+    <p><a href="/admin">Verwaltung</a></p>
+    {{- end}}
     {{- if .Konto}}
     <p>Angemeldet als {{.Konto.Email}}.
       <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form></p>

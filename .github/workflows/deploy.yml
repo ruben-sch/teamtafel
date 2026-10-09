@@ -5,7 +5,8 @@ name: Deploy
 # Secrets je GitHub-Environment (staging, production):
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
 #   SMTP_PASSWORD (Resend-API-Key; optional, ohne ihn gehen keine Mails raus)
-# Variable je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt"
+# Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
+#   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt
 on:
   push:
     branches: [main]
@@ -93,6 +94,7 @@ jobs:
           DEPLOY_ENV: ${{ env.IS_RELEASE == 'true' && 'production' || 'staging' }}
           APP_HOST: ${{ secrets.APP_HOST }}
           VEREIN_SLUGS: ${{ vars.VEREIN_SLUGS }}
+          SUPERADMIN_EMAILS: ${{ vars.SUPERADMIN_EMAILS }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
@@ -102,7 +104,7 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -129,6 +131,7 @@ jobs:
             POSTGRES_PASSWORD=$POSTGRES_PASSWORD
             APP_DB_PASSWORD=$APP_DB_PASSWORD
             SMTP_PASSWORD=$SMTP_PASSWORD
+            SUPERADMIN_EMAILS='$SUPERADMIN_EMAILS'
             EOF
 
             docker network inspect proxy >/dev/null 2>&1 || docker network create proxy

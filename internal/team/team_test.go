@@ -211,3 +211,17 @@ func dbtestCount(f fixture, q string, n *int) error {
 		return tx.QueryRow(f.ctx, q).Scan(n)
 	})
 }
+
+func TestTrainerListeUndEntfernen(t *testing.T) {
+	f := setup(t)
+	tr, err := f.store.Trainer(f.ctx, f.verein.ID, f.bambini.ID)
+	if err != nil || len(tr) != 1 || tr[0].KontoID != f.trainer.ID || tr[0].Email != f.trainer.Email {
+		t.Fatalf("trainer = %+v %v", tr, err)
+	}
+	if err := f.store.TrainerEntfernen(f.ctx, f.verein.ID, f.bambini.ID, f.trainer.ID); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := f.store.IstTrainer(f.ctx, f.verein.ID, f.bambini.ID, f.trainer.ID); ok {
+		t.Fatal("noch trainer nach entfernen")
+	}
+}
