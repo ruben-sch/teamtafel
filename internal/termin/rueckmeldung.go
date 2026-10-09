@@ -191,3 +191,18 @@ ORDER BY sp.vorname`, terminIDs, kontoID, s.Now().Year())
 func platzhalter(sql, konto, jahr string) string {
 	return strings.NewReplacer("$KONTO", konto+"::uuid", "$JAHR", jahr+"::int").Replace(sql)
 }
+
+// GrundAufbewahrung: so lange nach Terminbeginn bleibt der Absagegrund gespeichert.
+const GrundAufbewahrung = 90 * 24 * time.Hour
+
+// GruendeLoeschen entfernt die Absagegründe aller Termine, die länger als GrundAufbewahrung
+// zurückliegen; die Absage selbst bleibt. Die Wartung ruft das regelmäßig auf.
+func (s *Store) GruendeLoeschen(ctx context.Context, vereinID string) error {
+	return s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+UPDATE rueckmeldung r SET grund = NULL
+FROM termin t
+WHERE t.id = r.termin_id AND r.grund IS NOT NULL AND t.beginn < $1`, s.Now().Add(-GrundAufbewahrung))
+		return err
+	})
+}

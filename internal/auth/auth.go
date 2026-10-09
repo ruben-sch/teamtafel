@@ -176,3 +176,15 @@ func hashToken(token string) []byte {
 	h := sha256.Sum256([]byte(token))
 	return h[:]
 }
+
+// Aufraeumen löscht abgelaufene Login-Links und Sessions. Die Wartung ruft das regelmäßig auf.
+func (s *Store) Aufraeumen(ctx context.Context) error {
+	jetzt := s.Now()
+	if _, err := s.pool.Exec(ctx, `DELETE FROM login_token WHERE ablauf < $1`, jetzt); err != nil {
+		return fmt.Errorf("login-links aufräumen: %w", err)
+	}
+	if _, err := s.pool.Exec(ctx, `DELETE FROM session WHERE ablauf < $1`, jetzt); err != nil {
+		return fmt.Errorf("sessions aufräumen: %w", err)
+	}
+	return nil
+}
