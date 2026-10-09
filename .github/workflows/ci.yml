@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: public.ecr.aws/docker/library/postgres:17
         env:
           POSTGRES_DB: teamtafel_test
           POSTGRES_USER: postgres
@@ -23,7 +23,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       mailpit:
-        image: axllent/mailpit
+        image: ghcr.io/axllent/mailpit
         ports:
           - 1025:1025
           - 8025:8025
