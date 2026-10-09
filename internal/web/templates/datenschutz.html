@@ -1,0 +1,55 @@
+{{template "kopf" .}}
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <h1>Datenschutz</h1>
+    </div>
+  </header>
+  <main>
+    <div class="karte rechtliches">
+      <h2>Verantwortlich</h2>
+      {{- if .Betreiber.Vollstaendig}}
+      <p>{{.Betreiber.Name}}, {{.Betreiber.Anschrift}}, E-Mail: <a href="mailto:{{.Betreiber.Email}}">{{.Betreiber.Email}}</a></p>
+      {{- else}}
+      <p>Die Angaben zum Betreiber sind noch nicht hinterlegt.</p>
+      {{- end}}
+      <p>Teamtafel organisiert Trainings, Spiele und Rückmeldungen von Mannschaften. Wir verarbeiten nur, was dafür nötig ist. Es gibt keine Werbung, kein Tracking und keine Analyse-Werkzeuge.</p>
+
+      <h2>Welche Daten wir speichern</h2>
+      <ul>
+        <li>Dein Konto: E-Mail-Adresse und auf Wunsch dein Name.</li>
+        <li>Spieler: Vorname, Nachname und Jahrgang sowie die Zuordnung zur Mannschaft und zu den Eltern, die für das Kind zu- und absagen.</li>
+        <li>Termine des Vereins und die Zu- und Absagen. Ein Absagegrund ist optional und nur aus einer festen Auswahl (krank, Urlaub, sonstiges), es gibt kein Freitextfeld.</li>
+        <li>Rollen: wer Trainer oder Vereinsadmin ist.</li>
+        <li>Technisch nötige Daten: deine Anmeldung (Session-Cookie), auf Wunsch die Adresse für Push-Benachrichtigungen deines Geräts und ein geheimer Link für das Kalender-Abo. Login-Links und Kalender-Links speichern wir nur als Prüfsumme.</li>
+      </ul>
+
+      <h2>Wer was sieht</h2>
+      <p>Trainer sehen den Kader ihrer Mannschaft mit vollem Namen und alle Rückmeldungen samt Absagegrund. Andere Mitglieder der Mannschaft sehen nur Vornamen und ob jemand zu- oder abgesagt hat, nie den Grund. Benachrichtigungen nennen nur Vornamen.</p>
+
+      <h2>Zweck und Rechtsgrundlage</h2>
+      <p>Wir verarbeiten die Daten, um den Trainings- und Spielbetrieb der Mannschaft zu organisieren (Art. 6 Abs. 1 lit. b DSGVO). Das Session-Cookie ist technisch nötig, um dich angemeldet zu halten, und braucht keine Einwilligung (§ 25 Abs. 2 TDDDG). Kinder melden ihre Eltern an.</p>
+
+      <h2>Dienstleister</h2>
+      <ul>
+        <li>Hosting: Hetzner Online GmbH, Deutschland. Server und Datenbank stehen in Deutschland.</li>
+        <li>E-Mail-Versand: Resend (Plus Five Five, Inc., USA). Resend erhält deine E-Mail-Adresse und den Inhalt der Mail. Die Übermittlung stützt sich auf die Standardvertragsklauseln der EU-Kommission.</li>
+        <li>Push-Benachrichtigungen: Schaltest du sie ein, stellt der Push-Dienst deines Browsers sie zu (z. B. Google, Apple oder Mozilla). Der Inhalt ist verschlüsselt, der Dienst sieht nur, dass eine Nachricht an dein Gerät geht.</li>
+      </ul>
+      <p>Schriften und alle anderen Dateien liefern wir selbst aus, es werden keine Inhalte von Drittanbietern nachgeladen.</p>
+
+      <h2>Wie lange wir speichern</h2>
+      <ul>
+        <li>Absagegründe löschen wir 90 Tage nach dem Termin, die Absage selbst bleibt.</li>
+        <li>Abgelehnte Beitrittsanfragen löschen wir sofort.</li>
+        <li>Spieler, die seit 6 Monaten in keiner Mannschaft einer laufenden Saison stehen, löschen wir mit allen Rückmeldungen.</li>
+        <li>Konten, die zu keiner Mannschaft mehr gehören, löschen wir nach 30 Tagen. 7 Tage vorher bekommst du eine E-Mail.</li>
+        <li>Abgelaufene Login-Links und Sessions löschen wir laufend.</li>
+        <li>Server-Protokolle enthalten keine E-Mail-Adressen oder Namen, nur interne Kennungen, und werden laufend überschrieben.</li>
+      </ul>
+
+      <h2>Deine Rechte</h2>
+      <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Schreib uns dafür an die oben genannte Adresse. Du kannst dich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, in Baden-Württemberg beim Landesbeauftragten für den Datenschutz und die Informationsfreiheit.</p>
+    </div>
+  </main>
+{{template "fuss" .}}

@@ -100,6 +100,8 @@ func run() error {
 			Scheme:         cfg.Scheme,
 			BaseHost:       cfg.BaseHost,
 			Version:        cfg.Version,
+			Betreiber: web.Betreiber{Name: cfg.BetreiberName, Anschrift: cfg.BetreiberAnschrift,
+				Email: cfg.BetreiberEmail},
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

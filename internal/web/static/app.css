@@ -72,6 +72,10 @@ p { margin: 0; }
 main { max-width: 34rem; margin: 0 auto; padding: 1rem 1rem 2rem; display: flex; flex-direction: column; gap: .75rem; }
 main > h2, .abschnitt { margin: .75rem 0 0; font: 700 .9375rem/1.2 var(--schrift-titel); letter-spacing: .08em; text-transform: uppercase; color: var(--leise); }
 .leise { color: var(--leise); font-size: .875rem; }
+.fusszeile { max-width: 34rem; margin: 0 auto; padding: 0 1rem 2rem; text-align: center; font-size: .875rem; color: var(--leise); }
+.fusszeile a { color: inherit; }
+.rechtliches h2 { margin: .5rem 0 0; font-size: 1rem; }
+.rechtliches p, .rechtliches ul { margin: 0; }
 .fehler { color: var(--ab-text); font-weight: 600; }
 .hinweis { padding: .75rem 1rem; border-radius: .75rem; background: var(--chip-abgesagt); color: var(--chip-abgesagt-text); }
 

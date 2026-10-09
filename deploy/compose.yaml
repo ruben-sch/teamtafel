@@ -45,6 +45,10 @@ services:
       # Web Push; ohne beide Schlüssel gibt es nur E-Mails.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      # Impressum und Datenschutzerklärung; ohne sie zeigen die Seiten einen Hinweis.
+      BETREIBER_NAME: ${BETREIBER_NAME:-}
+      BETREIBER_ANSCHRIFT: ${BETREIBER_ANSCHRIFT:-}
+      BETREIBER_EMAIL: ${BETREIBER_EMAIL:-}
     networks:
       - default
       - proxy
