@@ -18,6 +18,12 @@ type Config struct {
 	MigrateDatabaseURL string
 	// BaseHost ist die Hauptdomain; Vereine liegen auf <slug>.<BaseHost>.
 	BaseHost string
+	// Scheme für Links in Mails, "https" oder lokal "http".
+	Scheme string
+	// SMTP-Zugang für den Mailversand.
+	SMTPHost, SMTPPort, SMTPUser, SMTPPassword string
+	// MailFrom ist der Absender, z. B. "Teamtafel <noreply@teamtafel.schwarzpost.de>".
+	MailFrom string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -29,10 +35,19 @@ func FromEnv(version string) (Config, error) {
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		MigrateDatabaseURL: os.Getenv("MIGRATE_DATABASE_URL"),
 		BaseHost:           strings.ToLower(getenv("APP_HOST", "localhost")),
+		Scheme:             getenv("APP_SCHEME", "https"),
+		SMTPHost:           getenv("SMTP_HOST", "localhost"),
+		SMTPPort:           getenv("SMTP_PORT", "587"),
+		SMTPUser:           os.Getenv("SMTP_USER"),
+		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
+		MailFrom:           os.Getenv("MAIL_FROM"),
 		Version:            version,
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL ist nicht gesetzt")
+	}
+	if c.MailFrom == "" {
+		c.MailFrom = "Teamtafel <noreply@" + c.BaseHost + ">"
 	}
 	if c.MigrateDatabaseURL == "" {
 		c.MigrateDatabaseURL = c.DatabaseURL

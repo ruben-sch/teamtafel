@@ -4,6 +4,7 @@ name: Deploy
 # Repo-Secrets: HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY
 # Secrets je GitHub-Environment (staging, production):
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
+#   SMTP_PASSWORD (Resend-API-Key; optional, ohne ihn gehen keine Mails raus)
 # Variable je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt"
 on:
   push:
@@ -94,13 +95,14 @@ jobs:
           VEREIN_SLUGS: ${{ vars.VEREIN_SLUGS }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,POSTGRES_PASSWORD,APP_DB_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -126,6 +128,7 @@ jobs:
             HOST_RULE='$HOST_RULE'
             POSTGRES_PASSWORD=$POSTGRES_PASSWORD
             APP_DB_PASSWORD=$APP_DB_PASSWORD
+            SMTP_PASSWORD=$SMTP_PASSWORD
             EOF
 
             docker network inspect proxy >/dev/null 2>&1 || docker network create proxy

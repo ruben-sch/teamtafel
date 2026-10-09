@@ -12,8 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/config"
 	"github.com/ruben-sch/teamtafel/internal/db"
+	"github.com/ruben-sch/teamtafel/internal/mail"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 	"github.com/ruben-sch/teamtafel/internal/web"
 )
@@ -63,8 +65,15 @@ func run() error {
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: web.NewHandler(web.Options{
-			DB:       pool,
-			Vereine:  verein.NewStore(pool),
+			DB:      pool,
+			Vereine: verein.NewStore(pool),
+			Auth:    auth.NewStore(pool),
+			Mailer: mail.NewSMTP(mail.Config{
+				Host: cfg.SMTPHost, Port: cfg.SMTPPort,
+				User: cfg.SMTPUser, Password: cfg.SMTPPassword,
+				From: cfg.MailFrom,
+			}),
+			Scheme:   cfg.Scheme,
 			BaseHost: cfg.BaseHost,
 			Version:  cfg.Version,
 		}),

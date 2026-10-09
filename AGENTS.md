@@ -12,6 +12,8 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/config/` – Konfiguration ausschließlich aus Umgebungsvariablen.
 - `internal/db/` – Pool und Migrationen.
 - `internal/verein/` – Mandanten (Verein), Saisons, Mannschaften.
+- `internal/auth/` – Magic-Link-Login, Sessions, Rate-Limit.
+- `internal/mail/` – SMTP-Versand (lokal Mailpit, sonst Resend); Tests laufen gegen Mailpit (`TEST_SMTP_ADDR`, `TEST_MAILPIT_URL`).
 - `internal/web/` – Handler und Templates; `mandant.go` löst den Verein aus der Subdomain auf.
 - `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.
 - `migrations/` – SQL-Migrationen (`NNNNN_name.sql`), per `embed` im Binary.

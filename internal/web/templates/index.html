@@ -1,25 +1,10 @@
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{if .Verein}}{{.Verein.Name}} · {{end}}Teamtafel</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; background: #f6f7f9; color: #1d2330; }
-    main { max-width: 32rem; margin: 0 auto; }
-    h1 { margin: 0 0 .5rem; }
-    .version { color: #5b6475; font-size: .875rem; }
-    @media (prefers-color-scheme: dark) { body { background: #12151b; color: #e6e9ef; } .version { color: #9aa3b5; } }
-  </style>
-</head>
-<body>
-  <main>
+{{template "kopf" .}}
     {{- if .Verein}}
     <h1>{{.Verein.Name}}</h1>
     {{- if .Mannschaften}}
     <ul>
       {{- range .Mannschaften}}
-      <li>{{.Name}} <span class="version">{{.Saison}}</span></li>
+      <li>{{.Name}} <span class="leise">{{.Saison}}</span></li>
       {{- end}}
     </ul>
     {{- else}}
@@ -29,7 +14,11 @@
     <h1>Teamtafel</h1>
     <p>Hallo! Hier entsteht die Teamverwaltung für unseren Verein.</p>
     {{- end}}
-    <p class="version">Version {{.Version}}</p>
-  </main>
-</body>
-</html>
+    {{- if .Konto}}
+    <p>Angemeldet als {{.Konto.Email}}.
+      <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form></p>
+    {{- else}}
+    <p><a href="/login">Anmelden</a></p>
+    {{- end}}
+    <p class="leise">Version {{.Version}}</p>
+{{template "fuss" .}}
