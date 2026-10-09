@@ -16,9 +16,10 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/team/` – Trainer, Spieler, Vertretungen (Eltern), Kader, Team-Links und Beitrittsanfragen.
 - `internal/termin/` – Termine, wöchentliche Serien und Rückmeldungen (Zu/Ab); die Wartung in `main.go` erzeugt stündlich Serientermine 8 Wochen im Voraus und erinnert alle 5 Minuten vor Fristen. Zeiten in Europe/Berlin, gespeichert in UTC.
 - `internal/job/` – Outbox und Job-Queue (`job`-Tabelle, global ohne RLS): `Einreihen` in der fachlichen Transaktion, Worker mit `FOR UPDATE SKIP LOCKED` und Backoff.
-- `internal/nachricht/` – Benachrichtigungen: Empfänger (`Team`, `Trainer`, `Spieler`), `An` reiht je Konto einen Job ein, `Zustellung` verschickt per Mail. Texte entstehen in den Fachpaketen; nur Vornamen, keine Absagegründe.
+- `internal/nachricht/` – Benachrichtigungen: Empfänger (`Team`, `Trainer`, `Spieler`), `An` reiht je Konto einen Job ein, `Zustellung` verschickt per Web Push, sonst Mail.
+- `internal/push/` – Web-Push-Abos (`push_abo`, global je Konto) und Versand per VAPID (webpush-go); 404/410 heißt Abo löschen. Texte entstehen in den Fachpaketen; nur Vornamen, keine Absagegründe.
 - `internal/mail/` – SMTP-Versand (lokal Mailpit, sonst Resend); Tests laufen gegen Mailpit (`TEST_SMTP_ADDR`, `TEST_MAILPIT_URL`).
-- `internal/web/` – Handler und Templates; `mandant.go` löst den Verein aus der Subdomain auf.
+- `internal/web/` – Handler, Templates und `static/` (Service Worker, Manifest, Icons, `app.js`); `mandant.go` löst den Verein aus der Subdomain auf.
 - `internal/dbtest/` – Integrationstests: migrierte DB und Pool mit App-Rolle ohne BYPASSRLS.
 - `migrations/` – SQL-Migrationen (`NNNNN_name.sql`), per `embed` im Binary.
 - `deploy/` – Compose-Dateien für Staging/Produktion und das Init-Skript der App-Rolle.

@@ -5,6 +5,7 @@ name: Deploy
 # Secrets je GitHub-Environment (staging, production):
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
 #   SMTP_PASSWORD (Resend-API-Key; optional, ohne ihn gehen keine Mails raus)
+#   VAPID_PRIVATE_KEY (Web Push; optional, zusammen mit der Variable VAPID_PUBLIC_KEY)
 # Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
 #   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt;
 #   MAIL_ALLOWLIST (Staging), nur diese Adressen bekommen Benachrichtigungen; leer heißt alle
@@ -97,6 +98,8 @@ jobs:
           VEREIN_SLUGS: ${{ vars.VEREIN_SLUGS }}
           SUPERADMIN_EMAILS: ${{ vars.SUPERADMIN_EMAILS }}
           MAIL_ALLOWLIST: ${{ vars.MAIL_ALLOWLIST }}
+          VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
@@ -106,7 +109,7 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,MAIL_ALLOWLIST,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
+          envs: DEPLOY_ENV,APP_HOST,VEREIN_SLUGS,SUPERADMIN_EMAILS,MAIL_ALLOWLIST,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,POSTGRES_PASSWORD,APP_DB_PASSWORD,SMTP_PASSWORD,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
             cd ~/teamtafel
@@ -135,6 +138,8 @@ jobs:
             SMTP_PASSWORD=$SMTP_PASSWORD
             SUPERADMIN_EMAILS='$SUPERADMIN_EMAILS'
             MAIL_ALLOWLIST='$MAIL_ALLOWLIST'
+            VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY
+            VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY
             EOF
 
             docker network inspect proxy >/dev/null 2>&1 || docker network create proxy

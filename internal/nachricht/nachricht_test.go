@@ -17,6 +17,7 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/db"
 	"github.com/ruben-sch/teamtafel/internal/dbtest"
 	"github.com/ruben-sch/teamtafel/internal/nachricht"
+	"github.com/ruben-sch/teamtafel/internal/push"
 	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
@@ -170,4 +171,63 @@ func TestAnUndZustellen(t *testing.T) {
 	if err := z3.Zustellen(w.ctx, ps[0]); err == nil {
 		t.Error("fehler verschluckt")
 	}
+}
+
+type fakeAbos struct {
+	abos     []push.Abo
+	entfernt []string
+}
+
+func (f *fakeAbos) Abos(context.Context, string) ([]push.Abo, error) { return f.abos, nil }
+func (f *fakeAbos) Entfernen(_ context.Context, e string) error {
+	f.entfernt = append(f.entfernt, e)
+	return nil
+}
+
+type fakePusher struct {
+	ergebnis map[string]error
+	daten    []string
+}
+
+func (f *fakePusher) Senden(_ context.Context, a push.Abo, data []byte) error {
+	f.daten = append(f.daten, string(data))
+	return f.ergebnis[a.Endpoint]
+}
+
+func aboMit(endpoint string) push.Abo { var a push.Abo; a.Endpoint = endpoint; return a }
+
+func TestPushZuerstSonstMail(t *testing.T) {
+	w := aufbauen(t)
+	einreihen := func(in nachricht.Inhalt) []byte {
+		w.tx(t, func(tx pgx.Tx) error {
+			return nachricht.An(w.ctx, tx, w.verein.ID, []string{w.eltern.ID}, in, time.Now())
+		})
+		ps := payloads(t, w, w.eltern.ID)
+		return ps[len(ps)-1]
+	}
+	normal := einreihen(nachricht.Inhalt{Betreff: "Neu: Training", Text: "Neuer Termin", Pfad: "/t/1"})
+	dringend := einreihen(nachricht.Inhalt{Betreff: "Abgesagt", Text: "fällt aus", Pfad: "/t/1", Dringend: true})
+
+	fall := func(name string, abos []push.Abo, ergebnis map[string]error, p []byte, wantMails int) (*fakeAbos, *fakePusher) {
+		t.Helper()
+		m, fa, fp := &fakeMailer{}, &fakeAbos{abos: abos}, &fakePusher{ergebnis: ergebnis}
+		z := nachricht.NewZustellung(w.pool, m, "https", "x.example", nil).MitPush(fa, fp)
+		if err := z.Zustellen(w.ctx, p); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(m.mails) != wantMails {
+			t.Errorf("%s: %d mails, want %d", name, len(m.mails), wantMails)
+		}
+		return fa, fp
+	}
+	_, fp := fall("ein gerät erreicht", []push.Abo{aboMit("a"), aboMit("b")}, map[string]error{"a": errors.New("timeout")}, normal, 0)
+	if len(fp.daten) != 2 || !strings.Contains(fp.daten[0], `"url":"https://`+w.verein.Slug+`.x.example/t/1"`) {
+		t.Errorf("push-daten %q", fp.daten)
+	}
+	fa, _ := fall("abgelaufen", []push.Abo{aboMit("a")}, map[string]error{"a": push.ErrAbgelaufen}, normal, 1)
+	if !slices.Equal(fa.entfernt, []string{"a"}) {
+		t.Errorf("entfernt %v", fa.entfernt)
+	}
+	fall("ohne abo", nil, nil, normal, 1)
+	fall("dringend", []push.Abo{aboMit("a")}, nil, dringend, 1)
 }

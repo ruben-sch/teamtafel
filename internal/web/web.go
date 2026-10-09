@@ -64,6 +64,9 @@ type Options struct {
 	Team Team
 	// Termine ist optional; ohne fehlen die Terminseiten.
 	Termine Termine
+	// Push ist optional; ohne Abo-Speicher oder VAPIDPublicKey gibt es nur E-Mails.
+	Push           PushAbos
+	VAPIDPublicKey string
 	// Superadmins sind die E-Mail-Adressen der Plattform-Admins.
 	Superadmins []string
 	// Scheme für Links in Mails: "https", lokal "http".
@@ -100,6 +103,14 @@ func NewHandler(o Options) http.Handler {
 	app.HandleFunc("GET /auth/{token}", l.bestaetigen)
 	app.HandleFunc("POST /auth/{token}", l.einloesen)
 	app.HandleFunc("POST /logout", l.abmelden)
+	statisch(app)
+	e := &einstellungen{vapidKey: o.VAPIDPublicKey}
+	if o.Push != nil && o.VAPIDPublicKey != "" {
+		e.abos = o.Push
+		app.HandleFunc("POST /push/abo", e.abo)
+		app.HandleFunc("DELETE /push/abo", e.abo)
+	}
+	app.HandleFunc("GET /einstellungen", e.seite)
 	if o.Team != nil {
 		t := &teamSeiten{team: o.Team, termine: o.Termine, rollen: rollen, scheme: o.Scheme}
 		app.HandleFunc("GET /m/{id}", t.mannschaft)

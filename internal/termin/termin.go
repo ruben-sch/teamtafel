@@ -248,9 +248,10 @@ SELECT abgesagt, mannschaft_id::text, typ, titel, beginn, ende FROM termin WHERE
 			return nil
 		}
 		return s.anTeam(ctx, tx, vereinID, mannschaftID, vonKontoID, nachricht.Inhalt{
-			Betreff: "Abgesagt: " + kurz(d),
-			Text:    kurz(d) + " fällt aus.",
-			Pfad:    "/t/" + terminID,
+			Betreff:  "Abgesagt: " + kurz(d),
+			Text:     kurz(d) + " fällt aus.",
+			Pfad:     "/t/" + terminID,
+			Dringend: true,
 		})
 	})
 }
