@@ -18,6 +18,7 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/job"
 	"github.com/ruben-sch/teamtafel/internal/mail"
 	"github.com/ruben-sch/teamtafel/internal/nachricht"
+	"github.com/ruben-sch/teamtafel/internal/push"
 	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
@@ -66,25 +67,35 @@ func run() error {
 		User: cfg.SMTPUser, Password: cfg.SMTPPassword,
 		From: cfg.MailFrom,
 	})
+	zustellung := nachricht.NewZustellung(pool, mailer, cfg.Scheme, cfg.BaseHost, cfg.MailAllowlist)
+	var abos *push.Store
+	if cfg.VAPIDPublicKey != "" && cfg.VAPIDPrivateKey != "" {
+		abos = push.NewStore(pool)
+		zustellung.MitPush(abos, &push.Sender{
+			PublicKey: cfg.VAPIDPublicKey, PrivateKey: cfg.VAPIDPrivateKey, Subject: cfg.VAPIDSubject})
+	} else {
+		slog.Info("web push aus: VAPID_PUBLIC_KEY oder VAPID_PRIVATE_KEY fehlt")
+	}
 	worker := job.NewWorker(pool)
-	worker.Registrieren(nachricht.Art,
-		nachricht.NewZustellung(pool, mailer, cfg.Scheme, cfg.BaseHost, cfg.MailAllowlist).Zustellen)
+	worker.Registrieren(nachricht.Art, zustellung.Zustellen)
 	go worker.Laufen(ctx, 10*time.Second)
 	go wartung(ctx, vereine, termine, worker)
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: web.NewHandler(web.Options{
-			DB:          pool,
-			Vereine:     vereine,
-			Auth:        auth.NewStore(pool),
-			Team:        team.NewStore(pool),
-			Termine:     termine,
-			Mailer:      mailer,
-			Superadmins: cfg.Superadmins,
-			Scheme:      cfg.Scheme,
-			BaseHost:    cfg.BaseHost,
-			Version:     cfg.Version,
+			DB:             pool,
+			Vereine:        vereine,
+			Auth:           auth.NewStore(pool),
+			Team:           team.NewStore(pool),
+			Termine:        termine,
+			Mailer:         mailer,
+			Superadmins:    cfg.Superadmins,
+			Push:           pushAbos(abos),
+			VAPIDPublicKey: cfg.VAPIDPublicKey,
+			Scheme:         cfg.Scheme,
+			BaseHost:       cfg.BaseHost,
+			Version:        cfg.Version,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -109,6 +120,14 @@ func run() error {
 		}
 	}
 	return nil
+}
+
+// pushAbos vermeidet ein typisiertes nil im Interface, wenn Push aus ist.
+func pushAbos(s *push.Store) web.PushAbos {
+	if s == nil {
+		return nil
+	}
+	return s
 }
 
 // healthcheck ruft /healthz des laufenden Servers auf. Gedacht für den

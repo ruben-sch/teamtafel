@@ -42,6 +42,9 @@ services:
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
       # Staging: Benachrichtigungen nur an diese Adressen; leer heißt alle.
       MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
+      # Web Push; ohne beide Schlüssel gibt es nur E-Mails.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     networks:
       - default
       - proxy

@@ -3,6 +3,7 @@ package config
 
 import (
 	"errors"
+	"net/mail"
 	"os"
 	"strings"
 )
@@ -28,6 +29,10 @@ type Config struct {
 	Superadmins []string
 	// MailAllowlist beschränkt Benachrichtigungen auf diese Adressen (MAIL_ALLOWLIST, für Staging); leer heißt alle.
 	MailAllowlist []string
+	// VAPID-Schlüssel für Web Push (base64url); ohne beide gibt es nur E-Mails.
+	VAPIDPublicKey, VAPIDPrivateKey string
+	// VAPIDSubject identifiziert den Absender bei den Push-Diensten, Standard mailto:<MAIL_FROM-Adresse>.
+	VAPIDSubject string
 	// Version wird beim Build gesetzt und auf der Startseite angezeigt.
 	Version string
 }
@@ -48,12 +53,20 @@ func FromEnv(version string) (Config, error) {
 		Version:            version,
 		Superadmins:        liste(os.Getenv("SUPERADMIN_EMAILS")),
 		MailAllowlist:      liste(os.Getenv("MAIL_ALLOWLIST")),
+		VAPIDPublicKey:     os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey:    os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:       os.Getenv("VAPID_SUBJECT"),
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL ist nicht gesetzt")
 	}
 	if c.MailFrom == "" {
 		c.MailFrom = "Teamtafel <noreply@" + c.BaseHost + ">"
+	}
+	if c.VAPIDSubject == "" {
+		if a, err := mail.ParseAddress(c.MailFrom); err == nil {
+			c.VAPIDSubject = "mailto:" + a.Address
+		}
 	}
 	if c.MigrateDatabaseURL == "" {
 		c.MigrateDatabaseURL = c.DatabaseURL
