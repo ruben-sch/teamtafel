@@ -1,0 +1,16 @@
+{{template "kopf" .}}
+    <h1>Einstellungen</h1>
+    <h2>Benachrichtigungen</h2>
+    {{- if .VAPIDKey}}
+    <div id="push" class="karte" data-key="{{.VAPIDKey}}">
+      <p class="status">Ohne JavaScript bekommst du Benachrichtigungen per E-Mail.</p>
+      <p class="ios leise" hidden>Auf dem iPhone kommen Push-Nachrichten nur, wenn Teamtafel auf dem Home-Bildschirm liegt: Teilen-Symbol antippen, „Zum Home-Bildschirm“ wählen und Teamtafel von dort öffnen.</p>
+      <button type="button" class="an" hidden>Push auf diesem Gerät aktivieren</button>
+      <button type="button" class="aus zweit" hidden>Push auf diesem Gerät ausschalten</button>
+    </div>
+    <p class="leise">Ohne Push bekommst du Neuigkeiten per E-Mail. Absagen kommen immer zusätzlich per E-Mail.</p>
+    {{- else}}
+    <p>Du bekommst Neuigkeiten zu Terminen per E-Mail.</p>
+    {{- end}}
+    <p><a href="/">Zur Startseite</a></p>
+{{template "fuss" .}}

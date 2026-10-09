@@ -42,7 +42,7 @@
     <p><a href="/admin">Verwaltung</a></p>
     {{- end}}
     {{- if .Konto}}
-    <p>Angemeldet als {{.Konto.Email}}.
+    <p>Angemeldet als {{.Konto.Email}}. <a href="/einstellungen">Einstellungen</a>
       <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form></p>
     {{- else}}
     <p><a href="/login">Anmelden</a></p>
