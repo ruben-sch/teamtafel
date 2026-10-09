@@ -31,6 +31,7 @@ Schritte 2 bis 4 erledigt `scripts/setup-github.sh <ssh-private-key> [host] [use
    - `APP_HOST` – z. B. `staging.teamtafel.schwarzpost.de`
    - `POSTGRES_PASSWORD`, `APP_DB_PASSWORD` – nur Hex-Zeichen, z. B. `openssl rand -hex 24`
 4. **release-please**: Settings → Actions → General → „Allow GitHub Actions to create and approve pull requests“ aktivieren.
-5. Nach dem ersten Push das GHCR-Paket prüfen (Sichtbarkeit privat genügt, der Deploy loggt sich mit dem Workflow-Token ein).
+5. **Claude-Review**: Repo-Secret `CLAUDE_CODE_OAUTH_TOKEN` setzen (Token per `claude setup-token`, dann `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R ruben-sch/teamtafel`).
+6. Nach dem ersten Push das GHCR-Paket prüfen (Sichtbarkeit privat genügt, der Deploy loggt sich mit dem Workflow-Token ein).
 
 Hinweis: Die App-Rolle `teamtafel_app` wird nur beim ersten Start der Datenbank angelegt. Ein späterer Wechsel von `APP_DB_PASSWORD` muss per `ALTER ROLE` nachgezogen werden.
