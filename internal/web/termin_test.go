@@ -22,6 +22,8 @@ type terminWelt struct {
 	trainer *http.Cookie
 	eltern  *http.Cookie
 	fremd   *http.Cookie
+	// Konto-IDs von Trainer und Elternteil.
+	trainerID, elternID string
 }
 
 // neueTerminWelt: Mannschaft mit Trainer, einem Elternteil mit Kind im Kader und einem Fremden.
@@ -37,6 +39,7 @@ func neueTerminWelt(t *testing.T) *terminWelt {
 	n := time.Now().UnixNano()
 	var trainer, eltern = w.konto(fmt.Sprintf("t-%d@example.org", n)), w.konto(fmt.Sprintf("e-%d@example.org", n))
 	w.trainer, w.eltern = trainer.cookie, eltern.cookie
+	w.trainerID, w.elternID = trainer.id, eltern.id
 	w.fremd, _ = w.anmelden(fmt.Sprintf("f-%d@example.org", n))
 	if err := w.team.TrainerHinzufuegen(ctx, w.verein.ID, w.bambini.ID, trainer.id); err != nil {
 		t.Fatal(err)

@@ -161,6 +161,11 @@ func NewHandler(o Options) http.Handler {
 			app.HandleFunc("POST /t/{id}/absagen", t.terminAbsagen)
 			app.HandleFunc("POST /t/{id}/rueckmeldung/{spieler}", t.rueckmelden)
 			app.HandleFunc("POST /t/{id}/anwesenheit/{spieler}", t.anwesenheitSetzen)
+			app.HandleFunc("POST /t/{id}/dienste", t.dienstAnlegen)
+			app.HandleFunc("POST /t/{id}/dienste/{dienst}", t.dienstAendern)
+			app.HandleFunc("POST /t/{id}/dienste/{dienst}/loeschen", t.dienstLoeschen)
+			app.HandleFunc("POST /t/{id}/dienste/{dienst}/eintragen", t.dienstEintrag(true))
+			app.HandleFunc("POST /t/{id}/dienste/{dienst}/austragen", t.dienstEintrag(false))
 		}
 
 		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, rollen: rollen, scheme: o.Scheme}

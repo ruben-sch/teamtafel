@@ -34,6 +34,11 @@
       {{template "zaehler" .}}
       {{- end}}
       {{- $k := .}}
+      {{- if and .Dienste (not .Abgesagt)}}
+      {{- with .Dienste}}
+      <a class="dienste" href="{{basis}}/t/{{$k.ID}}">{{if .Meine}}<b>Du: {{join .Meine ", "}}</b>{{end}}{{if and .Meine .Frei}} · {{end}}{{if or .Frei (not .Meine)}}Dienste: {{plaetzeFrei .Frei}}{{end}}</a>
+      {{- end}}
+      {{- end}}
       {{- if not .Abgesagt}}
       {{- range .Meine}}
       <div class="antwort">
