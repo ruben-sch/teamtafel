@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	texttemplate "text/template"
 	"time"
 
@@ -20,9 +21,24 @@ import (
 var templateFS embed.FS
 
 var (
-	templates     = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/*.html"))
+	// templates wird nie selbst ausgeführt, sondern je Vereinspfad geklont (vorlagen).
+	templates = template.Must(template.New("").Funcs(funcs).Funcs(template.FuncMap{
+		"basis": func() string { return "" },
+	}).ParseFS(templateFS, "templates/*.html"))
 	mailTemplates = texttemplate.Must(texttemplate.ParseFS(templateFS, "templates/*.txt"))
+	// geklont hält je Vereinspfad die Templates mit passendem basis.
+	geklont sync.Map
 )
+
+// vorlagen liefert die Templates, in denen {{basis}} den Vereinspfad b liefert.
+func vorlagen(b string) *template.Template {
+	if t, ok := geklont.Load(b); ok {
+		return t.(*template.Template)
+	}
+	t := template.Must(templates.Clone()).Funcs(template.FuncMap{"basis": func() string { return b }})
+	gespeichert, _ := geklont.LoadOrStore(b, t)
+	return gespeichert.(*template.Template)
+}
 
 // Pinger prüft, ob die Datenbank erreichbar ist.
 type Pinger interface {
@@ -75,8 +91,8 @@ type Options struct {
 	Superadmins []string
 	// Scheme für Links in Mails: "https", lokal "http".
 	Scheme string
-	// BaseHost ist die Hauptdomain, z. B. teamtafel.schwarzpost.de.
-	// Vereine liegen auf <slug>.<BaseHost>.
+	// BaseHost ist die Domain, z. B. teamtafel.schwarzpost.de.
+	// Vereine liegen auf <BaseHost>/<slug>/.
 	BaseHost string
 	Version  string
 	// Betreiber erscheint in Impressum und Datenschutzerklärung.
@@ -158,7 +174,7 @@ func NewHandler(o Options) http.Handler {
 	root := http.NewServeMux()
 	// Ohne Mandantenauflösung, weil der Docker-Healthcheck localhost aufruft.
 	root.HandleFunc("GET /healthz", healthz(o.DB))
-	root.Handle("/", mandant(o.BaseHost, o.Vereine, sitzung(o.Auth, app)))
+	root.Handle("/", mandant(o.Scheme, o.BaseHost, o.Vereine, sitzung(o.Auth, app)))
 
 	// CSRF: Schreibende Requests von fremden Origins lehnt die Standardbibliothek
 	// anhand von Sec-Fetch-Site bzw. Origin ab; dazu kommt SameSite=Lax am Cookie.
@@ -218,7 +234,7 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 				}
 			}
 		}
-		render(w, "index.html", data)
+		render(w, r, "index.html", data)
 	}
 }
 
@@ -240,16 +256,21 @@ func vereinCSS(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(":root { --verein: " + farbe + "; }\n"))
 }
 
-func render(w http.ResponseWriter, name string, data any) {
-	renderStatus(w, http.StatusOK, name, data)
+func render(w http.ResponseWriter, r *http.Request, name string, data any) {
+	renderStatus(w, r, http.StatusOK, name, data)
 }
 
-func renderStatus(w http.ResponseWriter, status int, name string, data any) {
+func renderStatus(w http.ResponseWriter, r *http.Request, status int, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	if err := templates.ExecuteTemplate(w, name, data); err != nil {
+	if err := vorlagen(basis(r)).ExecuteTemplate(w, name, data); err != nil {
 		slog.Error("template rendern", "template", name, "err", err)
 	}
+}
+
+// umleiten schickt nach dem Absenden auf pfad im Verein der Anfrage.
+func umleiten(w http.ResponseWriter, r *http.Request, pfad string) {
+	http.Redirect(w, r, basis(r)+pfad, http.StatusSeeOther)
 }
 
 func healthz(db Pinger) http.HandlerFunc {

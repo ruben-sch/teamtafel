@@ -91,7 +91,7 @@ func TestTrainerLegtEinzelterminAn(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || !terminLink.MatchString(rec.Header().Get("Location")) {
 		t.Fatalf("anlegen: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	tPath := rec.Header().Get("Location")
+	tPath := strings.TrimPrefix(rec.Header().Get("Location"), w.basis())
 
 	// Team sieht den Termin auf Startseite und Detailseite, Fremde nicht.
 	for name, c := range map[string]*http.Cookie{"trainer": w.trainer, "eltern": w.eltern} {

@@ -29,7 +29,7 @@ const Art = "nachricht"
 type Inhalt struct {
 	Betreff string `json:"betreff"`
 	Text    string `json:"text"`
-	// Pfad auf der Vereins-Subdomain, z. B. /t/{id}.
+	// Pfad im Verein, z. B. /t/{id}.
 	Pfad string `json:"pfad"`
 	// Dringend geht per Push und zusätzlich per E-Mail (Terminabsage).
 	Dringend bool `json:"dringend,omitempty"`
@@ -117,7 +117,7 @@ type Zustellung struct {
 	mailer Mailer
 	abos   Abos
 	pusher Pusher
-	// Scheme und BaseHost bilden den Link: <Scheme>://<slug>.<BaseHost><Pfad>.
+	// Scheme und BaseHost bilden den Link: <Scheme>://<BaseHost>/<slug><Pfad>.
 	Scheme, BaseHost string
 	// Erlaubt beschränkt den Versand auf diese Adressen (Staging); leer heißt alle.
 	Erlaubt []string
@@ -152,7 +152,7 @@ func (z *Zustellung) Zustellen(ctx context.Context, raw []byte) error {
 		slog.Info("benachrichtigung unterdrückt, adresse nicht freigegeben", "konto", p.KontoID)
 		return nil
 	}
-	link := z.Scheme + "://" + p.Verein + "." + z.BaseHost + p.Pfad
+	link := z.Scheme + "://" + z.BaseHost + "/" + p.Verein + p.Pfad
 	if z.pushen(ctx, p, link) && !p.Dringend {
 		return nil
 	}

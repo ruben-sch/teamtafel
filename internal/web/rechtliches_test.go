@@ -16,8 +16,9 @@ func TestImpressumUndDatenschutzOhneLogin(t *testing.T) {
 		Betreiber: Betreiber{Name: "Erika Muster", Anschrift: "Hauptstr. 1, 75391 Gechingen",
 			Email: "kontakt@example.org"},
 	})
-	for _, host := range []string{"teamtafel.example", "fc.teamtafel.example"} {
-		rec := get(h, host, "/impressum")
+	for _, basis := range []string{"", "/fc"} {
+		host := "teamtafel.example" + basis
+		rec := get(h, "teamtafel.example", basis+"/impressum")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s/impressum: %d", host, rec.Code)
 		}
@@ -26,7 +27,7 @@ func TestImpressumUndDatenschutzOhneLogin(t *testing.T) {
 				t.Errorf("%s/impressum ohne %q", host, want)
 			}
 		}
-		rec = get(h, host, "/datenschutz")
+		rec = get(h, "teamtafel.example", basis+"/datenschutz")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s/datenschutz: %d", host, rec.Code)
 		}

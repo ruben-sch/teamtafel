@@ -1,12 +1,12 @@
 {{template "kopf" .}}
   <header class="kopf">
     <div class="kopf-innen">
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Startseite</a>
       <h1>Anmelden</h1>
     </div>
   </header>
   <main>
-    <form class="karte" method="post" action="/login">
+    <form class="karte" method="post" action="{{basis}}/login">
       <p>Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du dich ohne Passwort anmeldest.</p>
       <input type="hidden" name="weiter" value="{{.Weiter}}">
       <label for="email">E-Mail-Adresse</label>

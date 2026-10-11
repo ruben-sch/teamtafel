@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{if .Titel}}{{.Titel}} · {{end}}Teamtafel</title>
-  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="manifest" href="{{basis}}/manifest.webmanifest">
   <link rel="icon" href="/static/icon-192.png">
   <link rel="apple-touch-icon" href="/static/icon-180.png">
   <meta name="theme-color" content="#1F3A5F">
   <link rel="preload" href="/static/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/app.css">
-  <link rel="stylesheet" href="/verein.css">
+  <link rel="stylesheet" href="{{basis}}/verein.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -18,7 +18,7 @@
 
 {{define "terminzeile"}}
     <article class="karte dicht termin {{.Typ}}{{if .Abgesagt}} abgesagt{{end}}">
-      <a class="termin-kopf" href="/t/{{.ID}}">
+      <a class="termin-kopf" href="{{basis}}/t/{{.ID}}">
         <span class="datum"><span>{{wtKurz .Beginn}}</span><b>{{tagZahl .Beginn}}</b><span>{{monatKurz .Beginn}}</span></span>
         <span class="info">
           {{- if .Abgesagt}}
@@ -39,7 +39,7 @@
       <div class="antwort">
         <span class="kind">{{.Vorname}}<small class="status-{{.Status}}">{{statusText .Status}}</small></span>
         {{- if $k.Moeglich}}
-        <form class="wahl" method="post" action="/t/{{$k.ID}}/rueckmeldung/{{.SpielerID}}">
+        <form class="wahl" method="post" action="{{basis}}/t/{{$k.ID}}/rueckmeldung/{{.SpielerID}}">
           <input type="hidden" name="zurueck" value="/">
           {{template "zuab" .Status}}
         </form>
@@ -74,7 +74,7 @@
 {{define "icon-plus"}}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{end}}
 
 {{define "fuss"}}
-<footer class="fusszeile"><a href="/impressum">Impressum</a> · <a href="/datenschutz">Datenschutz</a></footer>
+<footer class="fusszeile"><a href="{{basis}}/impressum">Impressum</a> · <a href="{{basis}}/datenschutz">Datenschutz</a></footer>
 </body>
 </html>
 {{end}}

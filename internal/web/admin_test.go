@@ -52,8 +52,7 @@ func (w *adminWelt) anmelden(host, email string) *http.Cookie {
 }
 
 func (w *adminWelt) do(host, method, target string, form url.Values, c *http.Cookie) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
-	req.Host = host
+	req := anfrage(method, host, target, strings.NewReader(form.Encode()))
 	if method == http.MethodPost {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
@@ -91,7 +90,7 @@ func TestSuperadminLegtVereinMitAdminAn(t *testing.T) {
 		t.Fatalf("anlegen: %d %s", rec.Code, rec.Body.String())
 	}
 	body := w.do(haupt, http.MethodGet, "/admin", nil, chef).Body.String()
-	if !strings.Contains(body, "SV Neu") || !strings.Contains(body, "https://"+slug+".teamtafel.example") {
+	if !strings.Contains(body, "SV Neu") || !strings.Contains(body, "https://teamtafel.example/"+slug) {
 		t.Fatalf("verein fehlt in der liste: %s", body)
 	}
 
@@ -120,7 +119,7 @@ func TestVereinsadminVerwaltetMannschaftenUndTrainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	host := v.Slug + ".teamtafel.example"
+	host := "teamtafel.example/" + v.Slug
 	vorstandEmail := fmt.Sprintf("vorstand-%d@example.org", time.Now().UnixNano())
 	vorstand, _ := w.auth.KontoFuer(ctx, vorstandEmail)
 	if err := w.verein.AdminHinzufuegen(ctx, v.ID, vorstand.ID); err != nil {
@@ -135,7 +134,7 @@ func TestVereinsadminVerwaltetMannschaftenUndTrainer(t *testing.T) {
 	if rec := w.do(host, http.MethodPost, "/admin/mannschaften", url.Values{"saison": {"2026/27"}, "name": {"F1"}}, eltern); rec.Code != http.StatusForbidden {
 		t.Fatalf("eltern legen an: %d", rec.Code)
 	}
-	if body := w.do(host, http.MethodGet, "/", nil, admin).Body.String(); !strings.Contains(body, `href="/admin"`) {
+	if body := w.do(host, http.MethodGet, "/", nil, admin).Body.String(); !strings.Contains(body, `href="/`+v.Slug+`/admin"`) {
 		t.Fatalf("startseite ohne admin-link: %s", body)
 	}
 
@@ -186,7 +185,7 @@ func TestVereinsadminVerwaltetMannschaftenUndTrainer(t *testing.T) {
 func TestSuperadminDarfInJedenVerein(t *testing.T) {
 	w := neueAdminWelt(t)
 	v, _ := w.verein.Anlegen(context.Background(), fmt.Sprintf("fc%d", time.Now().UnixNano()), "FC Fremd")
-	host := v.Slug + ".teamtafel.example"
+	host := "teamtafel.example/" + v.Slug
 	if rec := w.do(host, http.MethodGet, "/admin", nil, w.anmelden(host, w.chef)); rec.Code != http.StatusOK {
 		t.Fatalf("superadmin im verein: %d", rec.Code)
 	}
@@ -199,7 +198,7 @@ func TestVereinsfarbeSetztNurDerVereinsadmin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	host := v.Slug + ".teamtafel.example"
+	host := "teamtafel.example/" + v.Slug
 	vorstandEmail := fmt.Sprintf("vorstand-%d@example.org", time.Now().UnixNano())
 	vorstand, _ := w.auth.KontoFuer(ctx, vorstandEmail)
 	if err := w.verein.AdminHinzufuegen(ctx, v.ID, vorstand.ID); err != nil {
@@ -229,7 +228,7 @@ func TestVereinsfarbeSetztNurDerVereinsadmin(t *testing.T) {
 	}
 
 	neu := url.Values{"farbe": {"#8c1d2a"}}
-	if rec := w.do(host, http.MethodPost, "/admin/farbe", neu, nil); !strings.HasPrefix(rec.Header().Get("Location"), "/login") {
+	if rec := w.do(host, http.MethodPost, "/admin/farbe", neu, nil); !strings.HasPrefix(rec.Header().Get("Location"), "/"+v.Slug+"/login") {
 		t.Fatalf("ohne login: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 	if rec := w.do(host, http.MethodPost, "/admin/farbe", neu, trainer); rec.Code != http.StatusForbidden {

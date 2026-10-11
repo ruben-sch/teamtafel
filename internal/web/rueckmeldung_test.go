@@ -39,11 +39,11 @@ func TestElternSagenVonDerStartseiteZu(t *testing.T) {
 	ziel := "/t/" + tm.ID + "/rueckmeldung/" + sp
 
 	body := w.do(http.MethodGet, "/", nil, w.eltern).Body.String()
-	if !strings.Contains(body, `action="`+ziel+`"`) {
+	if !strings.Contains(body, `action="`+w.basis()+ziel+`"`) {
 		t.Fatalf("startseite ohne zu/ab-knöpfe: %s", body)
 	}
 	rec := w.do(http.MethodPost, ziel, url.Values{"status": {"zu"}, "zurueck": {"/"}}, w.eltern)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != w.basis()+"/" {
 		t.Fatalf("zusage: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 	if body := w.do(http.MethodGet, "/", nil, w.eltern).Body.String(); !strings.Contains(body, `Ben<small class="status-zu">zugesagt</small>`) {
@@ -54,7 +54,7 @@ func TestElternSagenVonDerStartseiteZu(t *testing.T) {
 	if rec := w.do(http.MethodPost, ziel, url.Values{"status": {"ab"}}, w.fremd); rec.Code != http.StatusForbidden {
 		t.Fatalf("fremd: %d", rec.Code)
 	}
-	if rec := w.do(http.MethodPost, ziel, url.Values{"status": {"zu"}, "zurueck": {"//evil.example"}}, w.eltern); rec.Header().Get("Location") != "/" {
+	if rec := w.do(http.MethodPost, ziel, url.Values{"status": {"zu"}, "zurueck": {"//evil.example"}}, w.eltern); rec.Header().Get("Location") != w.basis()+"/" {
 		t.Fatalf("zurueck auf fremde seite: %q", rec.Header().Get("Location"))
 	}
 	if rec := w.do(http.MethodPost, ziel, url.Values{"status": {"vielleicht"}}, w.eltern); rec.Code != http.StatusBadRequest {

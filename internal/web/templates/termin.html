@@ -4,9 +4,9 @@
   <header class="kopf">
     <div class="kopf-innen">
       {{- if $s.Verwalter}}
-      <a class="zurueck" href="/m/{{.MannschaftID}}">{{template "icon-zurueck"}}{{.Mannschaft}}</a>
+      <a class="zurueck" href="{{basis}}/m/{{.MannschaftID}}">{{template "icon-zurueck"}}{{.Mannschaft}}</a>
       {{- else}}
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Termine</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Termine</a>
       {{- end}}
       <span class="chip hell">{{typName .Typ}} · {{.Mannschaft}}</span>
       <h1>{{if .Titel}}{{.Titel}}{{else}}{{typName .Typ}}{{end}}</h1>
@@ -45,7 +45,7 @@
     <div class="karte">
       <div class="kopfzeile"><b>{{.Vorname}}</b><span class="status-{{.Status}}">{{statusText .Status}}</span></div>
       {{- if $s.FristOffen}}
-      <form method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
+      <form method="post" action="{{basis}}/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
         <label for="grund-{{.SpielerID}}" class="leise">Grund bei Absage <span class="leise">(optional, sieht nur das Trainerteam)</span></label>
         <select id="grund-{{.SpielerID}}" name="grund">
           <option value="">kein Grund</option>
@@ -76,7 +76,7 @@
           {{- else}}<span class="punkt offen"></span>{{end}}
           <span class="name">{{.Vorname}}{{if $s.Verwalter}} {{.Nachname}}{{end}}<small class="status-{{.Status}}">{{if and $s.Verwalter (eq .Status "ab") .Grund}}Ab ({{grundText .Grund}}){{else}}{{statusText .Status}}{{end}}</small></span>
           {{- if $s.Verwalter}}
-          <form class="wahl" method="post" action="/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
+          <form class="wahl" method="post" action="{{basis}}/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
             <button name="status" value="zu" class="klein" aria-label="{{.Vorname}} zusagen">{{template "icon-zu"}}</button>
             <button name="status" value="ab" class="klein" aria-label="{{.Vorname}} absagen">{{template "icon-ab"}}</button>
           </form>
@@ -93,13 +93,13 @@
       {{- if .Fehler}}
       <p class="fehler">{{.Fehler}}</p>
       {{- end}}
-      <form method="post" action="/t/{{.Termin.ID}}">
+      <form method="post" action="{{basis}}/t/{{.Termin.ID}}">
         {{template "terminfelder" .Form}}
         <button>Speichern</button>
       </form>
     </details>
     {{- if not .Termin.Abgesagt}}
-    <form method="post" action="/t/{{.Termin.ID}}/absagen">
+    <form method="post" action="{{basis}}/t/{{.Termin.ID}}/absagen">
       <button class="gefahr">Termin absagen</button>
     </form>
     {{- end}}

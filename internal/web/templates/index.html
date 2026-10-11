@@ -8,7 +8,7 @@
         {{- end}}
       </div>
       {{- if .Konto}}
-      <a class="iconknopf" href="/einstellungen" aria-label="Einstellungen">{{template "icon-einstellungen"}}</a>
+      <a class="iconknopf" href="{{basis}}/einstellungen" aria-label="Einstellungen">{{template "icon-einstellungen"}}</a>
       {{- end}}
     </div>
   </header>
@@ -31,7 +31,7 @@
     <div class="karte dicht">
       <ul class="liste">
         {{- range .Trainer}}
-        <li><a class="zeile" href="/m/{{.ID}}"><span class="name">{{.Name}}<small>Saison {{.Saison}}</small></span>{{template "icon-weiter"}}</a></li>
+        <li><a class="zeile" href="{{basis}}/m/{{.ID}}"><span class="name">{{.Name}}<small>Saison {{.Saison}}</small></span>{{template "icon-weiter"}}</a></li>
         {{- end}}
       </ul>
     </div>
@@ -66,12 +66,12 @@
     {{- if .Konto}}
     <div class="fuss">
       <span>Angemeldet als {{.Konto.Email}}</span>
-      <span><a href="/einstellungen">Einstellungen</a>{{if .Admin}} · <a href="/admin">Verwaltung</a>{{end}}</span>
-      <form class="inline" method="post" action="/logout"><button class="leise">Abmelden</button></form>
+      <span><a href="{{basis}}/einstellungen">Einstellungen</a>{{if .Admin}} · <a href="{{basis}}/admin">Verwaltung</a>{{end}}</span>
+      <form class="inline" method="post" action="{{basis}}/logout"><button class="leise">Abmelden</button></form>
       <span>Version {{.Version}}</span>
     </div>
     {{- else}}
-    <a class="knopf" href="/login">Anmelden</a>
+    <a class="knopf" href="{{basis}}/login">Anmelden</a>
     <p class="fuss">Version {{.Version}}</p>
     {{- end}}
   </main>

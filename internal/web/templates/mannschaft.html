@@ -1,13 +1,13 @@
 {{template "kopf" .}}
   <header class="kopf">
     <div class="kopf-innen">
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Startseite</a>
       <h1>{{.Mannschaft.Name}}</h1>
       <span class="unter">Saison {{.Mannschaft.Saison}} · {{len .Kader}} im Kader</span>
     </div>
   </header>
   <main>
-    <a class="knopf" href="/m/{{.Mannschaft.ID}}/termine/neu">{{template "icon-plus"}}Termin oder Serie anlegen</a>
+    <a class="knopf" href="{{basis}}/m/{{.Mannschaft.ID}}/termine/neu">{{template "icon-plus"}}Termin oder Serie anlegen</a>
 
     {{- if .IstTrainer}}
     <h2>Beitrittsanfragen</h2>
@@ -15,14 +15,14 @@
     <div class="karte">
       <div><b>{{.Vorname}} {{.Nachname}}</b>, Jahrgang {{.Jahrgang}}
         <p class="leise">{{if eq .Art "selbst"}}Spielt selbst{{else}}Angemeldet von{{end}}: {{.Email}}</p></div>
-      <form method="post" action="/anfragen/{{.ID}}/freigeben">
+      <form method="post" action="{{basis}}/anfragen/{{.ID}}/freigeben">
         {{- if .TrefferSpielerID}}
         <label class="wahl"><input type="checkbox" name="gleich" value="1" checked>
           Im Verein gibt es schon einen Spieler mit diesem Namen und Jahrgang. Ist es dieselbe Person?</label>
         {{- end}}
         <button>Ja, freigeben</button>
       </form>
-      <form method="post" action="/anfragen/{{.ID}}/ablehnen">
+      <form method="post" action="{{basis}}/anfragen/{{.ID}}/ablehnen">
         <button class="zweit">Ablehnen</button>
       </form>
     </div>
@@ -45,7 +45,7 @@
         {{- range .Serien}}
         <li>
           <span class="name">{{wochentag .Wochentag}}, {{.Uhrzeit}} Uhr<small>{{minuten .Dauer}} Minuten{{if .Ort}} · {{.Ort}}{{end}}</small></span>
-          <form method="post" action="/serien/{{.ID}}/beenden"><button class="zweit">Beenden</button></form>
+          <form method="post" action="{{basis}}/serien/{{.ID}}/beenden"><button class="zweit">Beenden</button></form>
         </li>
         {{- end}}
       </ul>
@@ -69,7 +69,7 @@
     <h2>Team-Link</h2>
     <div class="karte">
       <p>Mit dem Team-Link melden sich Spieler oder ihre Eltern an. Ein neuer Link macht den bisherigen ungültig.</p>
-      <form method="post" action="/m/{{.Mannschaft.ID}}/einladung">
+      <form method="post" action="{{basis}}/m/{{.Mannschaft.ID}}/einladung">
         <button class="zweit">Neuen Team-Link erzeugen</button>
       </form>
     </div>

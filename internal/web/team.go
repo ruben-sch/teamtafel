@@ -59,7 +59,7 @@ func angemeldet(w http.ResponseWriter, r *http.Request) (verein.Verein, auth.Kon
 	}
 	k, ok := kontoAus(r.Context())
 	if !ok {
-		http.Redirect(w, r, "/login?weiter="+url.QueryEscape(r.URL.Path), http.StatusSeeOther)
+		umleiten(w, r, "/login?weiter="+url.QueryEscape(r.URL.Path))
 		return v, k, false
 	}
 	return v, k, true
@@ -86,7 +86,7 @@ func (s *teamSeiten) trainerVon(w http.ResponseWriter, r *http.Request, mannscha
 		return v, k, false
 	}
 	if !ist {
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Diese Seite sehen nur die Trainer der Mannschaft.", LinkZiel: "/", LinkText: "Zur Startseite",
 		})
 		return v, k, false
@@ -146,7 +146,7 @@ func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 		interner(w, "kader laden", err)
 		return
 	}
-	render(w, "mannschaft.html", seite)
+	render(w, r, "mannschaft.html", seite)
 }
 
 func (s *teamSeiten) einladung(w http.ResponseWriter, r *http.Request) {
@@ -165,13 +165,13 @@ func (s *teamSeiten) einladung(w http.ResponseWriter, r *http.Request) {
 		interner(w, "team-link erneuern", err)
 		return
 	}
-	link := s.scheme + "://" + r.Host + "/join/" + token
+	link := s.scheme + "://" + r.Host + basis(r) + "/join/" + token
 	svg, err := qrSVG(link)
 	if err != nil {
 		interner(w, "qr-code", err)
 		return
 	}
-	render(w, "einladung.html", struct {
+	render(w, r, "einladung.html", struct {
 		Titel      string
 		Mannschaft verein.Mannschaft
 		Link       string
@@ -193,7 +193,7 @@ func (s *teamSeiten) joinMannschaft(w http.ResponseWriter, r *http.Request) (ver
 	}
 	m, err := s.team.Einladung(r.Context(), v.ID, r.PathValue("token"))
 	if errors.Is(err, team.ErrEinladungUngueltig) {
-		renderStatus(w, http.StatusNotFound, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusNotFound, "meldung.html", meldung{
 			Titel: "Link ungültig", Text: "Der Team-Link ist nicht mehr gültig. Frag beim Trainer nach dem aktuellen Link.",
 			LinkZiel: "/", LinkText: "Zur Startseite",
 		})
@@ -211,7 +211,7 @@ func (s *teamSeiten) joinFormular(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, "join.html", joinSeite{Titel: m.Name, Mannschaft: m, Daten: team.AnfrageDaten{Art: team.ArtKind}})
+	render(w, r, "join.html", joinSeite{Titel: m.Name, Mannschaft: m, Daten: team.AnfrageDaten{Art: team.ArtKind}})
 }
 
 func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +226,7 @@ func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
 	}
 	a, err := s.team.AnfrageStellen(r.Context(), v.ID, m.ID, k.ID, d)
 	if errors.Is(err, team.ErrUngueltigeAngaben) {
-		renderStatus(w, http.StatusBadRequest, "join.html", joinSeite{
+		renderStatus(w, r, http.StatusBadRequest, "join.html", joinSeite{
 			Titel: m.Name, Mannschaft: m, Daten: d, Fehler: "Bitte Vorname, Nachname und Jahrgang angeben.",
 		})
 		return
@@ -235,7 +235,7 @@ func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "anfrage stellen", err)
 		return
 	}
-	render(w, "join_gesendet.html", struct {
+	render(w, r, "join_gesendet.html", struct {
 		Titel      string
 		Mannschaft verein.Mannschaft
 		Anfrage    team.Anfrage
@@ -277,7 +277,7 @@ func (s *teamSeiten) anfrageEntscheiden(entscheiden func(ctx context.Context, ve
 			interner(w, "anfrage entscheiden", err)
 			return
 		}
-		http.Redirect(w, r, "/m/"+mannschaftID, http.StatusSeeOther)
+		umleiten(w, r, "/m/"+mannschaftID)
 	}
 }
 

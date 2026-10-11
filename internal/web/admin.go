@@ -53,7 +53,7 @@ func (a *verwaltung) berechtigt(w http.ResponseWriter, r *http.Request) (auth.Ko
 		if r.Method != http.MethodGet {
 			ziel = "/admin"
 		}
-		http.Redirect(w, r, "/login?weiter="+url.QueryEscape(ziel), http.StatusSeeOther)
+		umleiten(w, r, "/login?weiter="+url.QueryEscape(ziel))
 		return k, false
 	}
 	ok, err := a.rollen.darfVerwalten(r.Context(), k)
@@ -62,7 +62,7 @@ func (a *verwaltung) berechtigt(w http.ResponseWriter, r *http.Request) (auth.Ko
 		return k, false
 	}
 	if !ok {
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Diese Seite ist nur für Admins.", LinkZiel: "/", LinkText: "Zur Startseite",
 		})
 	}
@@ -98,9 +98,9 @@ func (a *verwaltung) zeigen(w http.ResponseWriter, r *http.Request, status int, 
 		Form    map[string]string
 	}{Titel: "Plattform-Verwaltung", Fehler: fehler, Form: formWerte(r, "slug", "name", "admin")}
 	for _, v := range vs {
-		data.Vereine = append(data.Vereine, eintrag{v, a.scheme + "://" + v.Slug + "." + r.Host})
+		data.Vereine = append(data.Vereine, eintrag{v, a.scheme + "://" + r.Host + "/" + v.Slug})
 	}
-	renderStatus(w, status, "admin_plattform.html", data)
+	renderStatus(w, r, status, "admin_plattform.html", data)
 }
 
 type adminMannschaft struct {
@@ -140,7 +140,7 @@ func (a *verwaltung) vereinSeite(w http.ResponseWriter, r *http.Request, v verei
 		interner(w, "admins laden", err)
 		return
 	}
-	renderStatus(w, status, "admin_verein.html", data)
+	renderStatus(w, r, status, "admin_verein.html", data)
 }
 
 func (a *verwaltung) vereinAnlegen(w http.ResponseWriter, r *http.Request) {
@@ -161,11 +161,11 @@ func (a *verwaltung) vereinAnlegen(w http.ResponseWriter, r *http.Request) {
 	v, err := a.vereine.Anlegen(ctx, strings.ToLower(strings.TrimSpace(r.PostFormValue("slug"))), r.PostFormValue("name"))
 	switch {
 	case errors.Is(err, verein.ErrSlugVergeben):
-		a.zeigen(w, r, http.StatusBadRequest, "Diese Subdomain ist schon vergeben.")
+		a.zeigen(w, r, http.StatusBadRequest, "Diese Adresse ist schon vergeben.")
 		return
 	case errors.Is(err, verein.ErrUngueltigerSlug):
 		a.zeigen(w, r, http.StatusBadRequest,
-			"Die Subdomain darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten und nicht reserviert sein.")
+			"Die Adresse darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten und nicht reserviert sein.")
 		return
 	case errors.Is(err, verein.ErrUngueltigerName):
 		a.zeigen(w, r, http.StatusBadRequest, "Bitte einen Namen angeben.")
@@ -178,7 +178,7 @@ func (a *verwaltung) vereinAnlegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "vereinsadmin eintragen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 func (a *verwaltung) adminEintragen(ctx context.Context, vereinID, email string) error {
@@ -215,7 +215,7 @@ func (a *verwaltung) adminHinzufuegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "vereinsadmin eintragen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 func (a *verwaltung) farbeSetzen(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +232,7 @@ func (a *verwaltung) farbeSetzen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "vereinsfarbe setzen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 func (a *verwaltung) mannschaftAnlegen(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +258,7 @@ func (a *verwaltung) mannschaftAnlegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "mannschaft anlegen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 // mannschaftImVerein prüft, ob die Mannschaft aus dem Pfad zum Verein gehört.
@@ -299,7 +299,7 @@ func (a *verwaltung) trainerHinzufuegen(w http.ResponseWriter, r *http.Request) 
 		interner(w, "trainer eintragen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 func (a *verwaltung) trainerEntfernen(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +316,7 @@ func (a *verwaltung) trainerEntfernen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "trainer entfernen", err)
 		return
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	umleiten(w, r, "/admin")
 }
 
 // aktuelleSaison liefert die Saison zum Datum; sie beginnt am 1. Juli.

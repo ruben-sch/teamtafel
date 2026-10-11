@@ -46,9 +46,21 @@ func TestAnlegenUndFindenPerSlug(t *testing.T) {
 
 func TestAnlegenPrueftSlug(t *testing.T) {
 	store := verein.NewStore(dbtest.AppPool(t))
-	for _, slug := range []string{"", "FC", "fc_x", "-fc", "fc-", "a.b", "staging", "www"} {
+	for _, slug := range []string{"", "FC", "fc_x", "-fc", "fc-", "a.b", "staging", "www",
+		"static", "login", "auth", "impressum", "m", "t", "join", "kalender", "einstellungen"} {
 		if _, err := store.Anlegen(context.Background(), slug, "X"); !errors.Is(err, verein.ErrUngueltigerSlug) {
 			t.Errorf("slug %q: err = %v, want ErrUngueltigerSlug", slug, err)
+		}
+	}
+}
+
+func TestSlugGueltig(t *testing.T) {
+	if !verein.SlugGueltig("sgm-heckengaeu") {
+		t.Error("sgm-heckengaeu abgelehnt")
+	}
+	for _, s := range []string{"admin", "push", "sw.js", "logout", "healthz"} {
+		if verein.SlugGueltig(s) {
+			t.Errorf("%q gilt als gültig", s)
 		}
 	}
 }

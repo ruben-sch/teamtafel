@@ -81,7 +81,8 @@ func hash(token string) []byte {
 // Kopf beschreibt den Kalender.
 type Kopf struct {
 	Name   string // Anzeigename, z. B. der Verein
-	Host   string // Vereins-Host für UID und Links
+	Host   string // Host für UID und Links
+	Pfad   string // Vereinspfad vor den Links, z. B. "/fc"
 	Scheme string
 }
 
@@ -114,7 +115,7 @@ func ICS(w io.Writer, k Kopf, ts []termin.Termin, jetzt time.Time) {
 			}
 			beschreibung = append(beschreibung, s)
 		}
-		link := k.Scheme + "://" + k.Host + "/t/" + t.ID
+		link := k.Scheme + "://" + k.Host + k.Pfad + "/t/" + t.ID
 		beschreibung = append(beschreibung, "In Teamtafel: "+link)
 
 		z.add("BEGIN:VEVENT")

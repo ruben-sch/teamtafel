@@ -57,5 +57,5 @@ func (e *einstellungen) kalenderFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
 	w.Header().Set("Cache-Control", "private, max-age=300")
-	kalender.ICS(w, kalender.Kopf{Name: v.Name, Host: r.Host, Scheme: e.scheme}, ts, time.Now())
+	kalender.ICS(w, kalender.Kopf{Name: v.Name, Host: r.Host, Pfad: basis(r), Scheme: e.scheme}, ts, time.Now())
 }

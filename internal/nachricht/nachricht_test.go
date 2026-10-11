@@ -153,7 +153,7 @@ func TestAnUndZustellen(t *testing.T) {
 	if len(m.mails) != 1 || m.mails[0].an != w.eltern.Email || m.mails[0].betreff != in.Betreff {
 		t.Fatalf("mails %+v", m.mails)
 	}
-	if link := "https://" + w.verein.Slug + ".teamtafel.example/t/123"; !strings.Contains(m.mails[0].text, link) {
+	if link := "https://teamtafel.example/" + w.verein.Slug + "/t/123"; !strings.Contains(m.mails[0].text, link) {
 		t.Errorf("link %s fehlt in %q", link, m.mails[0].text)
 	}
 
@@ -221,7 +221,7 @@ func TestPushZuerstSonstMail(t *testing.T) {
 		return fa, fp
 	}
 	_, fp := fall("ein gerät erreicht", []push.Abo{aboMit("a"), aboMit("b")}, map[string]error{"a": errors.New("timeout")}, normal, 0)
-	if len(fp.daten) != 2 || !strings.Contains(fp.daten[0], `"url":"https://`+w.verein.Slug+`.x.example/t/1"`) {
+	if len(fp.daten) != 2 || !strings.Contains(fp.daten[0], `"url":"https://x.example/`+w.verein.Slug+`/t/1"`) {
 		t.Errorf("push-daten %q", fp.daten)
 	}
 	fa, _ := fall("abgelaufen", []push.Abo{aboMit("a")}, map[string]error{"a": push.ErrAbgelaufen}, normal, 1)

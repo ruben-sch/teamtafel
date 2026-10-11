@@ -1,7 +1,7 @@
 {{template "kopf" .}}
   <header class="kopf">
     <div class="kopf-innen">
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Startseite</a>
       <h1>Verwaltung</h1>
       <span class="unter">{{.Verein.Name}}</span>
     </div>
@@ -12,7 +12,7 @@
     {{- end}}
 
     <h2>Vereinsfarbe</h2>
-    <form class="karte" method="post" action="/admin/farbe">
+    <form class="karte" method="post" action="{{basis}}/admin/farbe">
       <p>Die Farbe färbt Kopfleiste und Hauptknöpfe für alle im Verein. Sie muss dunkel genug sein, damit weiße Schrift darauf lesbar bleibt.</p>
       <div class="zeile mitte">
         <input type="color" id="farbe" name="farbe" value="{{.Verein.Farbe}}" aria-label="Vereinsfarbe">
@@ -29,13 +29,13 @@
       <ul class="liste">
         {{- range .Trainer}}
         <li><span class="name">{{.Email}}</span>
-          <form class="inline" method="post" action="/admin/mannschaften/{{$m.ID}}/trainer/{{.KontoID}}/entfernen"><button class="leise">entfernen</button></form></li>
+          <form class="inline" method="post" action="{{basis}}/admin/mannschaften/{{$m.ID}}/trainer/{{.KontoID}}/entfernen"><button class="leise">entfernen</button></form></li>
         {{- end}}
       </ul>
       {{- else}}
       <p class="leise">Noch kein Trainer.</p>
       {{- end}}
-      <form method="post" action="/admin/mannschaften/{{.ID}}/trainer">
+      <form method="post" action="{{basis}}/admin/mannschaften/{{.ID}}/trainer">
         <label for="trainer-{{.ID}}">Trainer eintragen (E-Mail)</label>
         <input type="email" id="trainer-{{.ID}}" name="email" required>
         <button class="zweit">Eintragen</button>
@@ -46,7 +46,7 @@
     {{- end}}
 
     <h2>Mannschaft anlegen</h2>
-    <form class="karte" method="post" action="/admin/mannschaften">
+    <form class="karte" method="post" action="{{basis}}/admin/mannschaften">
       <label for="name">Name</label>
       <input type="text" id="name" name="name" value="{{.Form.name}}" placeholder="z. B. U12 oder Herren 1" required>
       <label for="saison">Saison</label>
@@ -61,7 +61,7 @@
         <li><span class="name">{{.}}</span></li>
         {{- end}}
       </ul>
-      <form method="post" action="/admin/admins">
+      <form method="post" action="{{basis}}/admin/admins">
         <label for="admin">Admin eintragen (E-Mail)</label>
         <input type="email" id="admin" name="email" required>
         <button class="zweit">Eintragen</button>

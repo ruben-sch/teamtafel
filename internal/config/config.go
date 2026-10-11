@@ -17,7 +17,7 @@ type Config struct {
 	// MigrateDatabaseURL verbindet mit der Owner-Rolle für Migrationen.
 	// Leer bedeutet: DatabaseURL wird auch für Migrationen verwendet.
 	MigrateDatabaseURL string
-	// BaseHost ist die Hauptdomain; Vereine liegen auf <slug>.<BaseHost>.
+	// BaseHost ist die Domain; Vereine liegen auf <BaseHost>/<slug>/.
 	BaseHost string
 	// Scheme für Links in Mails, "https" oder lokal "http".
 	Scheme string
