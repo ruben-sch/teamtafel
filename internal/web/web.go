@@ -155,6 +155,7 @@ func NewHandler(o Options) http.Handler {
 			app.HandleFunc("POST /m/{id}/termine", t.terminAnlegen)
 			app.HandleFunc("POST /m/{id}/serien", t.serieAnlegen)
 			app.HandleFunc("POST /serien/{id}/beenden", t.serieBeenden)
+			app.HandleFunc("GET /m/{id}/statistik", t.statistik)
 			app.HandleFunc("GET /t/{id}", t.terminDetail)
 			app.HandleFunc("POST /t/{id}", t.terminAendern)
 			app.HandleFunc("POST /t/{id}/absagen", t.terminAbsagen)

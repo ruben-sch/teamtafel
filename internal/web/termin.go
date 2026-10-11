@@ -31,6 +31,7 @@ type Termine interface {
 	Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, kontoID, status, grund string, alsTrainer bool) error
 	Rueckmeldungen(ctx context.Context, vereinID, terminID string) ([]termin.Rueckmeldung, error)
 	MeineSpieler(ctx context.Context, vereinID, kontoID string, terminIDs []string) (map[string][]termin.Rueckmeldung, error)
+	Anwesenheit(ctx context.Context, vereinID, mannschaftID string) ([]termin.Anwesenheit, error)
 }
 
 // terminKarte ist ein Termin in einer Liste, mit den eigenen Spielern für Zu und Ab.
