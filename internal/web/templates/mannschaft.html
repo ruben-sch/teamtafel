@@ -54,6 +54,9 @@
     {{- end}}
 
     <h2>Kader</h2>
+    {{- if and .IstTrainer .Kader}}
+    <a class="knopf zweit" href="{{basis}}/m/{{.Mannschaft.ID}}/statistik">Anwesenheitsstatistik</a>
+    {{- end}}
     {{- if .Kader}}
     <div class="karte dicht">
       <ul class="liste">

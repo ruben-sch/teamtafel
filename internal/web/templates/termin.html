@@ -67,6 +67,9 @@
     <div class="karte">
       {{template "zaehler" .Termin}}
     </div>
+    {{- if and .Verwalter .Begonnen}}
+    <p class="leise">Anwesenheit: vorbelegt mit den Zusagen, ohne Rückmeldung gilt „fehlt“. Korrekturen ändern die Rückmeldung nicht und benachrichtigen niemanden.</p>
+    {{- end}}
     <div class="karte dicht">
       <ul class="liste">
         {{- range .Alle}}
@@ -75,7 +78,12 @@
           {{- else if eq .Status "ab"}}<span class="punkt ab">{{template "icon-ab"}}</span>
           {{- else}}<span class="punkt offen"></span>{{end}}
           <span class="name">{{.Vorname}}{{if $s.Verwalter}} {{.Nachname}}{{end}}<small class="status-{{.Status}}">{{if and $s.Verwalter (eq .Status "ab") .Grund}}Ab ({{grundText .Grund}}){{else}}{{statusText .Status}}{{end}}</small></span>
-          {{- if $s.Verwalter}}
+          {{- if and $s.Verwalter $s.Begonnen}}
+          <form class="wahl" method="post" action="{{basis}}/t/{{$s.Termin.ID}}/anwesenheit/{{.SpielerID}}">
+            <button name="anwesend" value="1" class="zu{{if .Anwesend}} aktiv{{end}}"{{if .Anwesend}} aria-pressed="true"{{end}} aria-label="{{.Vorname}} war da">Da</button>
+            <button name="anwesend" value="0" class="ab{{if not .Anwesend}} aktiv{{end}}"{{if not .Anwesend}} aria-pressed="true"{{end}} aria-label="{{.Vorname}} fehlte">Fehlt</button>
+          </form>
+          {{- else if $s.Verwalter}}
           <form class="wahl" method="post" action="{{basis}}/t/{{$s.Termin.ID}}/rueckmeldung/{{.SpielerID}}">
             <button name="status" value="zu" class="klein" aria-label="{{.Vorname}} zusagen">{{template "icon-zu"}}</button>
             <button name="status" value="ab" class="klein" aria-label="{{.Vorname}} absagen">{{template "icon-ab"}}</button>

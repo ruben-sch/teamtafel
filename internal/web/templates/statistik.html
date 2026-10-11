@@ -1,0 +1,29 @@
+{{template "kopf" .}}
+  <header class="kopf">
+    <div class="kopf-innen">
+      <a class="zurueck" href="{{basis}}/m/{{.Mannschaft.ID}}">{{template "icon-zurueck"}}{{.Mannschaft.Name}}</a>
+      <h1>Anwesenheit</h1>
+      <span class="unter">Saison {{.Mannschaft.Saison}} · bisherige Termine</span>
+    </div>
+  </header>
+  <main>
+    {{- if .Spieler}}
+    <div class="karte dicht">
+      <ul class="liste">
+        {{- range .Spieler}}
+        <li>
+          <span class="name">{{.Nachname}}, {{.Vorname}}
+            <small>Training {{template "beteiligung" .Training}} · Spiel {{template "beteiligung" .Spiel}}</small></span>
+          <b class="quote">{{if .Gesamt.Termine}}{{.Gesamt.Quote}} %{{else}}–{{end}}</b>
+        </li>
+        {{- end}}
+      </ul>
+    </div>
+    <p class="leise">Gezählt werden alle Termine der Saison, die schon begonnen haben; abgesagte Termine zählen nicht. Anwesend ist, wer zugesagt hat, außer der Trainer hat es am Termin korrigiert. Die Prozentzahl ist der Anteil der Termine, bei denen der Spieler da war. Wer später dazukam, fehlt bei früheren Terminen.</p>
+    {{- else}}
+    <p class="leise">Noch niemand im Kader.</p>
+    {{- end}}
+  </main>
+{{template "fuss" .}}
+
+{{define "beteiligung"}}{{if .Termine}}{{.Anwesend}} von {{.Termine}}{{else}}–{{end}}{{end}}

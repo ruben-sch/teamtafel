@@ -139,6 +139,7 @@ button.ab.aktiv { background: var(--ab); border-color: var(--ab); color: #fff; }
 .karte:not(.dicht) > .liste { padding: 0; }
 .liste .name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .liste .name small { font-size: .8125rem; color: var(--leise); font-weight: 400; }
+.liste .quote { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .liste a.zeile { flex: 1; display: flex; align-items: center; gap: .6rem; color: inherit; text-decoration: none; min-height: 2.75rem; }
 .liste form { display: flex; gap: .4rem; margin: 0; }
 .punkt { flex: 0 0 1.75rem; width: 1.75rem; height: 1.75rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }

@@ -31,6 +31,8 @@ type Termine interface {
 	Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, kontoID, status, grund string, alsTrainer bool) error
 	Rueckmeldungen(ctx context.Context, vereinID, terminID string) ([]termin.Rueckmeldung, error)
 	MeineSpieler(ctx context.Context, vereinID, kontoID string, terminIDs []string) (map[string][]termin.Rueckmeldung, error)
+	Anwesenheit(ctx context.Context, vereinID, mannschaftID string) ([]termin.Anwesenheit, error)
+	AnwesenheitSetzen(ctx context.Context, vereinID, terminID, spielerID, kontoID string, anwesend bool) error
 }
 
 // terminKarte ist ein Termin in einer Liste, mit den eigenen Spielern für Zu und Ab.
@@ -415,6 +417,8 @@ type terminSeite struct {
 	Alle        []termin.Rueckmeldung
 	FristOffen  bool
 	FristVorbei bool
+	// Begonnen: Trainer erfassen ab jetzt die Anwesenheit statt Zu und Ab.
+	Begonnen bool
 }
 
 func (s *teamSeiten) terminDetail(w http.ResponseWriter, r *http.Request) {
@@ -441,6 +445,7 @@ func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v
 	seite.Titel, seite.Meine = t.Mannschaft, meine[t.ID]
 	seite.FristOffen = fristOffen(t)
 	seite.FristVorbei = !t.Abgesagt && !seite.FristOffen
+	seite.Begonnen = !time.Now().Before(t.Beginn)
 	renderStatus(w, r, status, "termin.html", seite)
 }
 
