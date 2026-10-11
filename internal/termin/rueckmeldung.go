@@ -42,6 +42,9 @@ type Rueckmeldung struct {
 	Status      string // Zu, Ab oder leer
 	Grund       string
 	GeaendertAm *time.Time
+	// Anwesend ist vorbelegt mit der Zusage, bis der Trainer es korrigiert (AnwesendKorrigiert).
+	Anwesend           bool
+	AnwesendKorrigiert bool
 }
 
 // darfAntworten: eigener Spieler oder vertretenes Kind, solange es minderjährig ist.
@@ -132,11 +135,13 @@ func (s *Store) Rueckmeldungen(ctx context.Context, vereinID, terminID string) (
 	var out []Rueckmeldung
 	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-SELECT sp.id::text, sp.vorname, sp.nachname, coalesce(r.status, ''), coalesce(r.grund, ''), r.geaendert_am
+SELECT sp.id::text, sp.vorname, sp.nachname, coalesce(r.status, ''), coalesce(r.grund, ''), r.geaendert_am,
+	`+anwesendSQL+`, a.anwesend IS NOT NULL
 FROM termin t
 JOIN kader k ON k.mannschaft_id = t.mannschaft_id
 JOIN spieler sp ON sp.id = k.spieler_id
 LEFT JOIN rueckmeldung r ON r.termin_id = t.id AND r.spieler_id = sp.id
+LEFT JOIN anwesenheit a ON a.termin_id = t.id AND a.spieler_id = sp.id
 WHERE t.id = $1
 ORDER BY sp.vorname, sp.nachname`, terminID)
 		if err != nil {
@@ -144,7 +149,8 @@ ORDER BY sp.vorname, sp.nachname`, terminID)
 		}
 		out, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Rueckmeldung, error) {
 			var x Rueckmeldung
-			return x, r.Scan(&x.SpielerID, &x.Vorname, &x.Nachname, &x.Status, &x.Grund, &x.GeaendertAm)
+			return x, r.Scan(&x.SpielerID, &x.Vorname, &x.Nachname, &x.Status, &x.Grund, &x.GeaendertAm,
+				&x.Anwesend, &x.AnwesendKorrigiert)
 		})
 		return err
 	})
