@@ -21,7 +21,7 @@ import (
 var (
 	// ErrNotFound: kein Verein mit diesem Slug.
 	ErrNotFound = errors.New("verein nicht gefunden")
-	// ErrUngueltigerSlug: Slug taugt nicht als Subdomain oder ist reserviert.
+	// ErrUngueltigerSlug: Slug taugt nicht als Pfadsegment oder ist reserviert.
 	ErrUngueltigerSlug = errors.New("ungültiger slug")
 	// ErrUngueltigerName: Name fehlt.
 	ErrUngueltigerName = errors.New("name fehlt")
@@ -42,9 +42,20 @@ var (
 	slugPattern   = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	saisonPattern = regexp.MustCompile(`^(\d{4})/(\d{2})$`)
 	farbPattern   = regexp.MustCompile(`^#[0-9A-F]{6}$`)
-	// Reserviert, weil sie als Subdomain mit Umgebungen oder Diensten kollidieren.
-	reserviert = map[string]bool{"www": true, "staging": true, "api": true, "admin": true, "plattform": true, "mail": true}
+	// Reserviert, weil der Slug das erste Pfadsegment ist und sonst mit Seiten der
+	// Anwendung kollidiert; dazu Namen, die nach Umgebung oder Dienst aussehen.
+	reserviert = map[string]bool{
+		"www": true, "staging": true, "api": true, "admin": true, "plattform": true, "mail": true,
+		"static": true, "login": true, "logout": true, "auth": true, "healthz": true, "impressum": true,
+		"datenschutz": true, "einstellungen": true, "kalender": true, "push": true, "m": true, "t": true,
+		"join": true, "anfragen": true, "serien": true,
+	}
 )
+
+// SlugGueltig meldet, ob s als Slug eines Vereins taugt.
+func SlugGueltig(s string) bool {
+	return slugPattern.MatchString(s) && !reserviert[s]
+}
 
 // Verein ist ein Mandant.
 type Verein struct {
@@ -72,9 +83,9 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
-// Anlegen legt einen Verein an. Der Slug wird zur Subdomain.
+// Anlegen legt einen Verein an. Der Slug wird zum Pfad: <host>/<slug>/.
 func (s *Store) Anlegen(ctx context.Context, slug, name string) (Verein, error) {
-	if !slugPattern.MatchString(slug) || reserviert[slug] {
+	if !SlugGueltig(slug) {
 		return Verein{}, fmt.Errorf("%w: %q", ErrUngueltigerSlug, slug)
 	}
 	name = strings.TrimSpace(name)

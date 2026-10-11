@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var kalenderLink = regexp.MustCompile(`https://[^/<]+(/kalender/[A-Za-z0-9_-]+\.ics)`)
+var kalenderLink = regexp.MustCompile(`https://[^/<]+/[a-z0-9-]+(/kalender/[A-Za-z0-9_-]+\.ics)`)
 
 func TestKalenderAbo(t *testing.T) {
 	w := neueTerminWelt(t)
@@ -30,7 +30,7 @@ func TestKalenderAbo(t *testing.T) {
 		t.Fatalf("feed: %d %q", feed.Code, feed.Header().Get("Content-Type"))
 	}
 	ics := strings.ReplaceAll(feed.Body.String(), "\r\n ", "") // Faltung aufheben
-	if !strings.Contains(ics, "UID:"+tm.ID+"@"+w.host) || !strings.Contains(ics, "SUMMARY:Bambini: Training") {
+	if !strings.Contains(ics, "UID:"+tm.ID+"@teamtafel.example") || !strings.Contains(ics, "SUMMARY:Bambini: Training") {
 		t.Errorf("termin fehlt im feed:\n%s", feed.Body.String())
 	}
 

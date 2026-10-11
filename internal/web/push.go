@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -34,7 +35,13 @@ func statisch(app *http.ServeMux) {
 		}
 	}
 	app.HandleFunc("GET /sw.js", datei("sw.js", "text/javascript; charset=utf-8"))
-	app.HandleFunc("GET /manifest.webmanifest", datei("manifest.webmanifest", "application/manifest+json"))
+	manifest, _ := fs.ReadFile(sub, "manifest.webmanifest")
+	app.HandleFunc("GET /manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/manifest+json")
+		w.Header().Set("Cache-Control", "no-cache")
+		// Auf dem Startbildschirm startet die App im Verein, von dessen Seite sie stammt.
+		_, _ = w.Write(bytes.Replace(manifest, []byte(`"start_url": "/"`), []byte(`"start_url": "`+basis(r)+`/"`), 1))
+	})
 	app.Handle("GET /static/", http.StripPrefix("/static/", dateien))
 }
 
@@ -49,7 +56,7 @@ type einstellungen struct {
 type einstellungenSeite struct {
 	Titel    string
 	VAPIDKey string
-	// Kalender gibt es nur auf einer Vereins-Subdomain.
+	// Kalender gibt es nur im Verein.
 	Kalender      bool
 	KalenderAktiv bool
 	// KalenderLink steht nur direkt nach dem Erneuern im Klartext zur Verfügung.
@@ -65,7 +72,7 @@ func (e *einstellungen) seite(w http.ResponseWriter, r *http.Request) {
 func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, token string) {
 	k, ok := kontoAus(r.Context())
 	if !ok {
-		http.Redirect(w, r, "/login?weiter=/einstellungen", http.StatusSeeOther)
+		umleiten(w, r, "/login?weiter=/einstellungen")
 		return
 	}
 	data := einstellungenSeite{Titel: "Einstellungen"}
@@ -81,11 +88,11 @@ func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, token str
 		}
 		data.KalenderAktiv = aktiv
 		if token != "" {
-			pfad := r.Host + "/kalender/" + token + ".ics"
+			pfad := r.Host + basis(r) + "/kalender/" + token + ".ics"
 			data.KalenderLink, data.KalenderWebcal = e.scheme+"://"+pfad, template.URL("webcal://"+pfad) // #nosec G203 -- Host und Token aus eigener Quelle
 		}
 	}
-	render(w, "einstellungen.html", data)
+	render(w, r, "einstellungen.html", data)
 }
 
 // abo speichert (POST) oder löscht (DELETE) das Push-Abo des Geräts; der Body ist JSON

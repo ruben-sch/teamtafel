@@ -42,7 +42,7 @@ func neueTeamWelt(t *testing.T) *teamWelt {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := &teamWelt{t: t, host: v.Slug + ".teamtafel.example", auth: auth.NewStore(pool), team: team.NewStore(pool),
+	w := &teamWelt{t: t, host: "teamtafel.example/" + v.Slug, auth: auth.NewStore(pool), team: team.NewStore(pool),
 		verein: v, vereine: vs, bambini: m, mailer: &fakeMailer{}}
 	w.h = NewHandler(Options{
 		DB: fakePinger{}, Vereine: vs, Auth: w.auth, Team: w.team, Mailer: w.mailer,
@@ -66,9 +66,11 @@ func (w *teamWelt) anmelden(email string) (*http.Cookie, auth.Konto) {
 	return &http.Cookie{Name: sessionCookie, Value: sess}, k
 }
 
+// basis ist der Pfad des Vereins in Links und Weiterleitungen.
+func (w *teamWelt) basis() string { return "/" + w.verein.Slug }
+
 func (w *teamWelt) do(method, target string, form url.Values, c *http.Cookie) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
-	req.Host = w.host
+	req := anfrage(method, w.host, target, strings.NewReader(form.Encode()))
 	if method == http.MethodPost {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
@@ -80,7 +82,7 @@ func (w *teamWelt) do(method, target string, form url.Values, c *http.Cookie) *h
 	return rec
 }
 
-var joinPattern = regexp.MustCompile(`https://[^/"]+(/join/[A-Za-z0-9_-]+)`)
+var joinPattern = regexp.MustCompile(`https://[^/"]+/[a-z0-9-]+(/join/[A-Za-z0-9_-]+)`)
 
 func TestBeitrittUeberTeamLinkMitFreigabe(t *testing.T) {
 	w := neueTeamWelt(t)
@@ -116,7 +118,7 @@ func TestBeitrittUeberTeamLinkMitFreigabe(t *testing.T) {
 
 	// Ohne Login geht es zur Anmeldung, danach zurück zum Formular.
 	rec = w.do(http.MethodGet, joinPath, nil, nil)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/login?weiter="+url.QueryEscape(joinPath) {
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != w.basis()+"/login?weiter="+url.QueryEscape(joinPath) {
 		t.Fatalf("join ohne login: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 
@@ -192,12 +194,12 @@ func TestLoginLeitetNachEinloesenWeiter(t *testing.T) {
 	}
 	w.do(http.MethodPost, "/login", url.Values{"email": {"weiter@example.org"}, "weiter": {"/join/abc"}}, nil)
 	mail := w.mailer.letzte(t)
-	link := regexp.MustCompile(`https://[^/]+(/auth/\S+)`).FindStringSubmatch(mail.text)
+	link := regexp.MustCompile(`https://[^/]+/[a-z0-9-]+(/auth/\S+)`).FindStringSubmatch(mail.text)
 	if link == nil || !strings.Contains(link[1], "weiter=%2Fjoin%2Fabc") {
 		t.Fatalf("link ohne weiter: %q", mail.text)
 	}
 	rec = w.do(http.MethodPost, link[1], url.Values{}, nil)
-	if rec.Header().Get("Location") != "/join/abc" {
+	if rec.Header().Get("Location") != w.basis()+"/join/abc" {
 		t.Fatalf("weiterleitung = %q", rec.Header().Get("Location"))
 	}
 }

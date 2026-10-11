@@ -5,7 +5,7 @@
     </div>
   </header>
   <main>
-    <form class="karte" method="post" action="/auth/{{.Token}}">
+    <form class="karte" method="post" action="{{basis}}/auth/{{.Token}}">
       <input type="hidden" name="weiter" value="{{.Weiter}}">
       <p>Tippe auf den Knopf, um dich auf diesem Gerät anzumelden.</p>
       <button>Jetzt anmelden</button>

@@ -61,20 +61,20 @@ func TestICS(t *testing.T) {
 			Beginn: time.Date(2026, 10, 20, 17, 30, 0, 0, berlin), Ende: time.Date(2026, 10, 20, 19, 0, 0, 0, berlin)}},
 	}
 	var sb strings.Builder
-	kalender.ICS(&sb, kalender.Kopf{Name: "FC Test", Host: "fc.teamtafel.example", Scheme: "https"}, ts,
+	kalender.ICS(&sb, kalender.Kopf{Name: "FC Test", Host: "teamtafel.example", Pfad: "/fc", Scheme: "https"}, ts,
 		time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC))
 	out := sb.String()
 
 	for _, want := range []string{
 		"BEGIN:VCALENDAR\r\nVERSION:2.0\r\n",
 		"X-WR-CALNAME:FC Test\r\n",
-		"UID:t1@fc.teamtafel.example\r\n",
+		"UID:t1@teamtafel.example\r\n",
 		"DTSTAMP:20261009T120000Z\r\n",
 		"DTSTART:20261017T080000Z\r\n",
 		"DTEND:20261017T093000Z\r\n",
 		"SUMMARY:E1: Spiel gegen SV Nachbar\\; Heim\\, Liga\r\n",
 		"LOCATION:Sportplatz\\nGechingen\r\n",
-		"URL:https://fc.teamtafel.example/t/t1\r\n",
+		"URL:https://teamtafel.example/fc/t/t1\r\n",
 		"SUMMARY:Abgesagt: E1: Training\r\n",
 		"STATUS:CANCELLED\r\n",
 		"END:VCALENDAR\r\n",

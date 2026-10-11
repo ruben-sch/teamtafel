@@ -146,7 +146,7 @@ func (s *teamSeiten) verwalterVon(w http.ResponseWriter, r *http.Request, mannsc
 		return v, k, false
 	}
 	if !ok {
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Diese Seite sehen nur die Trainer der Mannschaft.", LinkZiel: "/", LinkText: "Zur Startseite",
 		})
 	}
@@ -270,7 +270,7 @@ func (s *teamSeiten) neuSeite(w http.ResponseWriter, r *http.Request, v verein.V
 		return
 	}
 	seite.Titel, seite.Mannschaft = "Termin anlegen", m
-	renderStatus(w, status, "termin_neu.html", seite)
+	renderStatus(w, r, status, "termin_neu.html", seite)
 }
 
 func (s *teamSeiten) terminNeu(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +305,7 @@ func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "termin anlegen", err)
 		return
 	}
-	http.Redirect(w, r, "/t/"+t.ID, http.StatusSeeOther)
+	umleiten(w, r, "/t/"+t.ID)
 }
 
 const terminFehler = "Bitte Datum und Uhrzeiten prüfen: Das Ende muss nach dem Beginn liegen, Treffzeit und Frist davor."
@@ -330,7 +330,7 @@ func (s *teamSeiten) serieAnlegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "serie anlegen", err)
 		return
 	}
-	http.Redirect(w, r, "/m/"+id, http.StatusSeeOther)
+	umleiten(w, r, "/m/"+id)
 }
 
 func (s *teamSeiten) serieBeenden(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +359,7 @@ func (s *teamSeiten) serieBeenden(w http.ResponseWriter, r *http.Request) {
 		interner(w, "serie beenden", err)
 		return
 	}
-	http.Redirect(w, r, "/m/"+sr.MannschaftID, http.StatusSeeOther)
+	umleiten(w, r, "/m/"+sr.MannschaftID)
 }
 
 // terminLaden liefert den Termin aus dem Pfad und ob das Konto ihn verwalten darf.
@@ -397,7 +397,7 @@ func (s *teamSeiten) terminLaden(w http.ResponseWriter, r *http.Request) (verein
 		}
 	}
 	if !team {
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Diesen Termin sieht nur das Team.", LinkZiel: "/", LinkText: "Zur Startseite",
 		})
 		return v, t, false, false
@@ -441,7 +441,7 @@ func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v
 	seite.Titel, seite.Meine = t.Mannschaft, meine[t.ID]
 	seite.FristOffen = fristOffen(t)
 	seite.FristVorbei = !t.Abgesagt && !seite.FristOffen
-	renderStatus(w, status, "termin.html", seite)
+	renderStatus(w, r, status, "termin.html", seite)
 }
 
 func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
@@ -466,11 +466,11 @@ func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, termin.ErrUngueltig):
 		http.Error(w, "Ungültige Rückmeldung", http.StatusBadRequest)
 	case errors.Is(err, termin.ErrNichtBerechtigt):
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Für diesen Spieler kannst du nicht zu- oder absagen.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
 		})
 	case errors.Is(err, termin.ErrFristVorbei), errors.Is(err, termin.ErrAbgesagt):
-		renderStatus(w, http.StatusConflict, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusConflict, "meldung.html", meldung{
 			Titel: "Nicht mehr möglich", Text: "Die Frist ist vorbei oder der Termin wurde abgesagt. Bitte sag dem Trainer direkt Bescheid.",
 			LinkZiel: zurueck, LinkText: "Zurück zum Termin",
 		})
@@ -480,14 +480,14 @@ func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
 		if z := r.PostFormValue("zurueck"); z != "" {
 			zurueck = sicheresZiel(z)
 		}
-		http.Redirect(w, r, zurueck, http.StatusSeeOther)
+		umleiten(w, r, zurueck)
 	}
 }
 
 func (s *teamSeiten) verwalterTermin(w http.ResponseWriter, r *http.Request) (verein.Verein, termin.Termin, bool) {
 	v, t, verwalter, ok := s.terminLaden(w, r)
 	if ok && !verwalter {
-		renderStatus(w, http.StatusForbidden, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
 			Titel: "Kein Zugriff", Text: "Termine ändern nur die Trainer.", LinkZiel: "/t/" + t.ID, LinkText: "Zurück zum Termin",
 		})
 		return v, t, false
@@ -514,7 +514,7 @@ func (s *teamSeiten) terminAendern(w http.ResponseWriter, r *http.Request) {
 		interner(w, "termin ändern", err)
 		return
 	}
-	http.Redirect(w, r, "/t/"+t.ID, http.StatusSeeOther)
+	umleiten(w, r, "/t/"+t.ID)
 }
 
 func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request) {
@@ -527,5 +527,5 @@ func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "termin absagen", err)
 		return
 	}
-	http.Redirect(w, r, "/t/"+t.ID, http.StatusSeeOther)
+	umleiten(w, r, "/t/"+t.ID)
 }

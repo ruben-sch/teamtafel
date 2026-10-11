@@ -1,14 +1,14 @@
 {{template "kopf" .}}
   <header class="kopf">
     <div class="kopf-innen">
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Startseite</a>
       <h1>Schau in dein Postfach</h1>
     </div>
   </header>
   <main>
     <div class="karte">
       <p>Wenn {{.Email}} gültig ist, ist ein Anmeldelink unterwegs. Er ist 15 Minuten gültig und funktioniert einmal.</p>
-      <p class="leise">Nichts angekommen? Prüfe den Spam-Ordner oder <a href="/login">fordere einen neuen Link an</a>.</p>
+      <p class="leise">Nichts angekommen? Prüfe den Spam-Ordner oder <a href="{{basis}}/login">fordere einen neuen Link an</a>.</p>
     </div>
   </main>
 {{template "fuss" .}}

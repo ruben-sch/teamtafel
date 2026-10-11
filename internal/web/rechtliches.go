@@ -19,7 +19,7 @@ type rechtlichesSeite struct {
 
 // rechtliches liefert Impressum oder Datenschutzerklärung; beide sind ohne Anmeldung erreichbar.
 func rechtliches(b Betreiber, name, titel string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		render(w, name, rechtlichesSeite{Titel: titel, Betreiber: b})
+	return func(w http.ResponseWriter, r *http.Request) {
+		render(w, r, name, rechtlichesSeite{Titel: titel, Betreiber: b})
 	}
 }

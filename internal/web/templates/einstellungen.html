@@ -1,7 +1,7 @@
 {{template "kopf" .}}
   <header class="kopf">
     <div class="kopf-innen">
-      <a class="zurueck" href="/">{{template "icon-zurueck"}}Startseite</a>
+      <a class="zurueck" href="{{basis}}/">{{template "icon-zurueck"}}Startseite</a>
       <h1>Einstellungen</h1>
     </div>
   </header>
@@ -32,7 +32,7 @@
       <p>Abonniere deine Termine in Google, Apple oder Outlook. Absagen und Änderungen kommen automatisch an.</p>
       {{- end}}
       {{- if not .KalenderLink}}
-      <form method="post" action="/einstellungen/kalender"><button{{if .KalenderAktiv}} class="zweit"{{end}}>{{if .KalenderAktiv}}Neuen Kalender-Link erzeugen{{else}}Kalender-Link erzeugen{{end}}</button></form>
+      <form method="post" action="{{basis}}/einstellungen/kalender"><button{{if .KalenderAktiv}} class="zweit"{{end}}>{{if .KalenderAktiv}}Neuen Kalender-Link erzeugen{{else}}Kalender-Link erzeugen{{end}}</button></form>
       {{- end}}
     </div>
     {{- end}}

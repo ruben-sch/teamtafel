@@ -65,7 +65,7 @@ type meldung struct {
 }
 
 func (l *login) formular(w http.ResponseWriter, r *http.Request) {
-	render(w, "login.html", loginSeite{Titel: "Anmelden", Weiter: sicheresZiel(r.URL.Query().Get("weiter"))})
+	render(w, r, "login.html", loginSeite{Titel: "Anmelden", Weiter: sicheresZiel(r.URL.Query().Get("weiter"))})
 }
 
 func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
@@ -74,14 +74,14 @@ func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 
 	if !l.proIP.Erlaubt(clientIP(r)) || !l.proAdresse.Erlaubt(email) {
 		seite.Fehler = "Zu viele Versuche. Bitte warte ein paar Minuten."
-		renderStatus(w, http.StatusTooManyRequests, "login.html", seite)
+		renderStatus(w, r, http.StatusTooManyRequests, "login.html", seite)
 		return
 	}
 
 	token, err := l.auth.LinkAnfordern(r.Context(), email)
 	if errors.Is(err, auth.ErrUngueltigeAdresse) {
 		seite.Fehler = "Das sieht nicht nach einer E-Mail-Adresse aus."
-		renderStatus(w, http.StatusBadRequest, "login.html", seite)
+		renderStatus(w, r, http.StatusBadRequest, "login.html", seite)
 		return
 	}
 	if err != nil {
@@ -90,7 +90,7 @@ func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := l.scheme + "://" + r.Host + "/auth/" + token
+	link := l.scheme + "://" + r.Host + basis(r) + "/auth/" + token
 	if seite.Weiter != "/" {
 		link += "?weiter=" + url.QueryEscape(seite.Weiter)
 	}
@@ -104,19 +104,19 @@ func (l *login) anfordern(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	if err := l.mailer.Senden(ctx, email, "Dein Anmeldelink für Teamtafel", text.String()); err != nil {
 		slog.Error("login-mail senden", "err", err)
-		renderStatus(w, http.StatusBadGateway, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusBadGateway, "meldung.html", meldung{
 			Titel: "Mail konnte nicht verschickt werden", Text: "Bitte versuche es gleich noch einmal.",
 			LinkZiel: "/login", LinkText: "Zurück zur Anmeldung",
 		})
 		return
 	}
-	render(w, "login_gesendet.html", seite)
+	render(w, r, "login_gesendet.html", seite)
 }
 
 // bestaetigen zeigt nur einen Knopf. Erst der POST löst den Link ein, damit
 // Mail-Scanner, die Links vorab öffnen, ihn nicht verbrauchen.
 func (l *login) bestaetigen(w http.ResponseWriter, r *http.Request) {
-	render(w, "auth.html", loginSeite{
+	render(w, r, "auth.html", loginSeite{
 		Titel: "Anmelden", Token: r.PathValue("token"), Weiter: sicheresZiel(r.URL.Query().Get("weiter")),
 	})
 }
@@ -124,7 +124,7 @@ func (l *login) bestaetigen(w http.ResponseWriter, r *http.Request) {
 func (l *login) einloesen(w http.ResponseWriter, r *http.Request) {
 	sess, _, err := l.auth.Einloesen(r.Context(), r.PathValue("token"))
 	if errors.Is(err, auth.ErrUngueltig) {
-		renderStatus(w, http.StatusBadRequest, "meldung.html", meldung{
+		renderStatus(w, r, http.StatusBadRequest, "meldung.html", meldung{
 			Titel: "Link ungültig", Text: "Der Link ist abgelaufen oder wurde schon verwendet.",
 			LinkZiel: "/login", LinkText: "Neuen Link anfordern",
 		})
@@ -144,7 +144,7 @@ func (l *login) einloesen(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
-	http.Redirect(w, r, sicheresZiel(r.FormValue("weiter")), http.StatusSeeOther)
+	umleiten(w, r, sicheresZiel(r.FormValue("weiter")))
 }
 
 // sicheresZiel lässt nur Pfade auf dem eigenen Host zu, damit "weiter" nicht
@@ -167,7 +167,7 @@ func (l *login) abmelden(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	umleiten(w, r, "/")
 }
 
 // clientIP nimmt den ersten Eintrag aus X-Forwarded-For. Die App ist nur über

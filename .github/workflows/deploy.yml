@@ -6,7 +6,8 @@ name: Deploy
 #   APP_HOST, POSTGRES_PASSWORD, APP_DB_PASSWORD (nur [0-9a-f], z. B. openssl rand -hex 24)
 #   SMTP_PASSWORD (Resend-API-Key; optional, ohne ihn gehen keine Mails raus)
 #   VAPID_PRIVATE_KEY (Web Push; optional, zusammen mit der Variable VAPID_PUBLIC_KEY)
-# Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt";
+# Variablen je Environment (optional): VEREIN_SLUGS, z. B. "fc-beispiel tsv-musterstadt", nur noch
+#   für die Weiterleitung alter Links von <slug>.APP_HOST; neue Vereine brauchen keinen Eintrag;
 #   SUPERADMIN_EMAILS, Adressen der Plattform-Admins, durch Komma oder Leerzeichen getrennt;
 #   MAIL_ALLOWLIST (Staging), nur diese Adressen bekommen Benachrichtigungen; leer heißt alle
 #   BETREIBER_NAME, BETREIBER_ANSCHRIFT, BETREIBER_EMAIL überschreiben die Impressumsangaben aus dem Code
@@ -125,7 +126,7 @@ jobs:
               STACK=teamtafel-staging; IMAGE_TAG=staging; FILES="-f compose.yaml -f compose.staging.yaml"
             fi
 
-            # Traefik-Regel: Hauptdomain und eine Subdomain je Verein.
+            # Traefik-Regel: Hauptdomain, dazu alte Vereins-Subdomains, die die App auf /<slug>/ umleitet.
             BT='`'
             HOST_RULE="Host(${BT}${APP_HOST}${BT})"
             for slug in $(echo "${VEREIN_SLUGS:-}" | tr ',' ' '); do

@@ -14,10 +14,10 @@ make lint
 
 ## Verwaltung
 
-Jeder Verein ist ein Mandant und läuft unter `<slug>.<APP_HOST>`.
+Jeder Verein ist ein Mandant und läuft unter `<APP_HOST>/<slug>/`.
 
 - **Plattform-Admins** stehen in der Environment-Variable `SUPERADMIN_EMAILS` (Settings → Environments → Variables, mehrere durch Komma getrennt). Sie melden sich auf der Hauptdomain an und legen unter `/admin` Vereine samt erstem Vereinsadmin an. Lokal ist das `admin@example.org`.
-- **Vereinsadmins** melden sich auf der Vereins-Subdomain an und legen unter `/admin` Mannschaften an, tragen Trainer ein oder entfernen sie und ernennen weitere Vereinsadmins.
+- **Vereinsadmins** melden sich auf der Vereinsseite an und legen unter `/<slug>/admin` Mannschaften an, tragen Trainer ein oder entfernen sie und ernennen weitere Vereinsadmins.
 - **Trainer** (und Vereinsadmins) legen auf der Mannschaftsseite Einzeltermine und wöchentliche Trainingsserien an, ändern Termine oder sagen sie ab. Serientermine entstehen jeweils acht Wochen im Voraus.
 - **Eltern und Spieler** sagen direkt auf der Startseite zu oder ab, im Termin auch mit Grund (krank, Urlaub, sonstiges). Bis zur Frist (ohne Frist bis zum Beginn) geht das selbst, danach nur über den Trainer. Für Kinder antworten die Eltern, solange das Kind minderjährig ist. Trainer sehen Zähler und Gründe.
 - **Trainer** öffnen ihre Mannschaft und erzeugen dort den Team-Link mit QR-Code. Eltern (oder Spieler selbst) melden sich über den Link an und stellen eine Beitrittsanfrage, die der Trainer freigibt oder ablehnt.
@@ -52,9 +52,11 @@ Die Wartung in der App setzt sie stündlich um:
 
 `/impressum` und `/datenschutz` sind auf jeder Domain ohne Anmeldung erreichbar und in der Fußzeile verlinkt. Die Betreiberangaben stehen als Standard in `internal/config/config.go`. Die Environment-Variablen `BETREIBER_NAME`, `BETREIBER_ANSCHRIFT` und `BETREIBER_EMAIL` überschreiben sie (ohne einfache Anführungszeichen).
 
-Damit der Verein erreichbar ist, kommt sein Slug in die Environment-Variable `VEREIN_SLUGS` (Settings → Environments → Variables, mehrere durch Leerzeichen getrennt). Der nächste Deploy trägt `<slug>.<APP_HOST>` in Traefik ein; Traefik holt das Zertifikat per HTTP-Challenge. DNS: Der Anbieter (domaindiscount24) kann keine Wildcards, daher je Verein zwei A-Records auf die VM: `<slug>.teamtafel.schwarzpost.de` und `<slug>.staging.teamtafel.schwarzpost.de`.
+Ein neuer Verein ist sofort unter `<APP_HOST>/<slug>/` erreichbar, ohne DNS-Eintrag, Zertifikat oder Deploy. Der Slug ist das erste Pfadsegment; Namen von Seiten der App (`login`, `static`, `kalender` …) sind deshalb reserviert.
 
-Lokal: `http://<slug>.localhost:8080` (Browser lösen `*.localhost` selbst auf).
+Früher lief jeder Verein auf `<slug>.<APP_HOST>`. Solche Links (Team-Links, Kalender-Abos, alte Mails) leitet die App dauerhaft auf `<APP_HOST>/<slug>/…` um, solange die Subdomain noch auf die VM zeigt und in der Environment-Variable `VEREIN_SLUGS` steht (dann trägt der Deploy sie in Traefik ein). Wenn keine alten Links mehr im Umlauf sind, können `VEREIN_SLUGS` und die A-Records weg.
+
+Lokal: `http://localhost:8080/<slug>/`.
 
 ## Deployment
 

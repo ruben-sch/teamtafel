@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,6 +60,17 @@ func testHandler(p Pinger) http.Handler {
 	})
 }
 
+// anfrage baut einen Request auf ort, z. B. "teamtafel.example/fc" für den Verein fc.
+func anfrage(method, ort, target string, body io.Reader) *http.Request {
+	host, slug, _ := strings.Cut(ort, "/")
+	if slug != "" {
+		target = "/" + slug + target
+	}
+	req := httptest.NewRequest(method, target, body)
+	req.Host = host
+	return req
+}
+
 func get(h http.Handler, host, path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Host = host
@@ -80,25 +92,72 @@ func TestIndexAufHauptdomainZeigtNameUndVersion(t *testing.T) {
 	}
 }
 
-func TestIndexAufVereinsSubdomainZeigtVereinUndMannschaften(t *testing.T) {
-	rec := get(testHandler(fakePinger{}), "fc.teamtafel.example:443", "/")
+func TestIndexImVereinspfadZeigtVereinUndMannschaften(t *testing.T) {
+	rec := get(testHandler(fakePinger{}), "teamtafel.example", "/fc/")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, erwartet 200", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"FC Beispiel", "Bambini", "2026/27"} {
+	for _, want := range []string{"FC Beispiel", "Bambini", "2026/27", `href="/fc/login"`, `href="/fc/verein.css"`,
+		`href="/fc/manifest.webmanifest"`, `href="/fc/impressum"`, `src="/static/app.js"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("vereinsseite enthält %q nicht", want)
 		}
 	}
 }
 
+func TestHauptdomainVerlinktOhneVerein(t *testing.T) {
+	body := get(testHandler(fakePinger{}), "teamtafel.example", "/").Body.String()
+	for _, want := range []string{`href="/login"`, `href="/verein.css"`, `href="/impressum"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("startseite enthält %q nicht", want)
+		}
+	}
+}
+
+func TestVereinspfadOhneSchraegstrichLeitetUm(t *testing.T) {
+	rec := get(testHandler(fakePinger{}), "teamtafel.example", "/fc?x=1")
+	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/fc/?x=1" {
+		t.Fatalf("status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestAlteSubdomainLeitetAufPfadUm(t *testing.T) {
+	h := NewHandler(Options{DB: fakePinger{}, BaseHost: "teamtafel.example", Scheme: "https", Vereine: fakeVereine{}})
+	rec := get(h, "FC.teamtafel.example", "/t/5?a=b")
+	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "https://teamtafel.example/fc/t/5?a=b" {
+		t.Fatalf("GET: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+	req := httptest.NewRequest(http.MethodPost, "/auth/abc", nil)
+	req.Host = "fc.teamtafel.example:8443"
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusPermanentRedirect || rec.Header().Get("Location") != "https://teamtafel.example:8443/fc/auth/abc" {
+		t.Fatalf("POST: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
 func TestUnbekannterVereinUndFremderHostLiefern404(t *testing.T) {
 	h := testHandler(fakePinger{})
-	for _, host := range []string{"gibtsnicht.teamtafel.example", "a.b.teamtafel.example", "fremd.example"} {
-		if rec := get(h, host, "/"); rec.Code != http.StatusNotFound {
-			t.Errorf("host %s: status = %d, erwartet 404", host, rec.Code)
+	for _, ziel := range []struct{ host, pfad string }{
+		{"teamtafel.example", "/gibtsnicht/"},
+		{"teamtafel.example", "/gibtsnicht/m/1"},
+		{"a.b.teamtafel.example", "/"},
+		{"fremd.example", "/"},
+	} {
+		if rec := get(h, ziel.host, ziel.pfad); rec.Code != http.StatusNotFound {
+			t.Errorf("%s%s: status = %d, erwartet 404", ziel.host, ziel.pfad, rec.Code)
 		}
+	}
+}
+
+func TestManifestStartetImVerein(t *testing.T) {
+	h := testHandler(fakePinger{})
+	if body := get(h, "teamtafel.example", "/fc/manifest.webmanifest").Body.String(); !strings.Contains(body, `"start_url": "/fc/"`) {
+		t.Errorf("vereinsmanifest: %s", body)
+	}
+	if body := get(h, "teamtafel.example", "/manifest.webmanifest").Body.String(); !strings.Contains(body, `"start_url": "/"`) {
+		t.Errorf("manifest: %s", body)
 	}
 }
 
