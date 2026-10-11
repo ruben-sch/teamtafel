@@ -105,6 +105,11 @@ main > h2, .abschnitt { margin: .75rem 0 0; font: 700 .9375rem/1.2 var(--schrift
 /* Rückmeldung Zu/Ab */
 .antwort { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .875rem .875rem; border-top: 1px solid var(--trenner); }
 .antwort + .antwort { border-top: 0; padding-top: 0; }
+.dienste { display: block; padding: .6rem .875rem; border-top: 1px solid var(--trenner); font-size: .875rem; color: var(--leise); text-decoration: none; }
+.einteilen { display: flex; gap: .5rem; align-items: stretch; }
+.einteilen select { flex: 1; min-width: 0; }
+.einteilen button { width: auto; margin: 0; }
+.dienste b { color: var(--tinte); font-weight: 600; }
 .kind { font-weight: 600; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .kind small, .status-offen { font-size: .8125rem; font-weight: 400; color: var(--leise); }
 .status-zu { color: var(--zu-text); font-weight: 600; }

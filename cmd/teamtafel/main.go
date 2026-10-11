@@ -155,7 +155,7 @@ func healthcheck() int {
 	return 0
 }
 
-// wartung erinnert alle fünf Minuten an offene Rückmeldungen. Stündlich hält sie die
+// wartung erinnert alle fünf Minuten an offene Rückmeldungen und Dienste. Stündlich hält sie die
 // Serientermine acht Wochen im Voraus vor und setzt die Löschfristen um. Mehrere Instanzen
 // stören sich nicht: alles ist idempotent, Erinnern markiert jeden Termin in derselben
 // Transaktion, der Löschhinweis sperrt das Konto beim Versand.
@@ -180,6 +180,9 @@ func (w *wartung) laufen(ctx context.Context) {
 		for _, v := range vs {
 			if err := w.termine.Erinnern(ctx, v.ID); err != nil {
 				slog.Error("erinnern", "verein", v.Slug, "err", err)
+			}
+			if err := w.termine.DiensteErinnern(ctx, v.ID); err != nil {
+				slog.Error("dienste erinnern", "verein", v.Slug, "err", err)
 			}
 		}
 		select {

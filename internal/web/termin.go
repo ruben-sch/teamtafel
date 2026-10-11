@@ -33,6 +33,14 @@ type Termine interface {
 	MeineSpieler(ctx context.Context, vereinID, kontoID string, terminIDs []string) (map[string][]termin.Rueckmeldung, error)
 	Anwesenheit(ctx context.Context, vereinID, mannschaftID string) ([]termin.Anwesenheit, error)
 	AnwesenheitSetzen(ctx context.Context, vereinID, terminID, spielerID, kontoID string, anwesend bool) error
+	DienstAnlegen(ctx context.Context, vereinID, terminID, bezeichnung string, plaetze int) (termin.Dienst, error)
+	DienstAendern(ctx context.Context, vereinID, terminID, dienstID, bezeichnung string, plaetze int) error
+	DienstLoeschen(ctx context.Context, vereinID, terminID, dienstID string) error
+	Eintragen(ctx context.Context, vereinID, terminID, dienstID, kontoID, vonKontoID string) error
+	Austragen(ctx context.Context, vereinID, terminID, dienstID, kontoID, vonKontoID string) error
+	Dienste(ctx context.Context, vereinID, terminID string) ([]termin.Dienst, error)
+	DienstPersonen(ctx context.Context, vereinID, terminID string) ([]termin.Person, error)
+	DienstUebersicht(ctx context.Context, vereinID, kontoID string, terminIDs []string) (map[string]termin.DienstInfo, error)
 }
 
 // terminKarte ist ein Termin in einer Liste, mit den eigenen Spielern für Zu und Ab.
@@ -43,6 +51,8 @@ type terminKarte struct {
 	Moeglich bool
 	// Zaehler: Zu, Ab und Offen anzeigen (Trainer-Übersicht).
 	Zaehler bool
+	// Dienste fasst die Dienste zusammen; nil, wenn der Termin keine hat.
+	Dienste *termin.DienstInfo
 }
 
 // fristOffen: Bis zur Frist, ohne Frist bis zum Beginn, dürfen Eltern und Spieler antworten.
@@ -64,9 +74,16 @@ func karten(ctx context.Context, ts Termine, vereinID, kontoID string, termine [
 	if err != nil {
 		return nil, err
 	}
+	dienste, err := ts.DienstUebersicht(ctx, vereinID, kontoID, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]terminKarte, len(termine))
 	for i, t := range termine {
 		out[i] = terminKarte{Termin: t, Meine: meine[t.ID], Moeglich: fristOffen(t), Zaehler: zaehler}
+		if d, ok := dienste[t.ID]; ok {
+			out[i].Dienste = &d
+		}
 	}
 	return out, nil
 }
@@ -123,7 +140,18 @@ var funcs = template.FuncMap{
 		return teil * 100 / summe
 	},
 	"list": func(s ...string) []string { return s },
-	"inc":  func(i int) int { return i + 1 },
+	"join": strings.Join,
+	// plaetzeFrei: "1 Platz frei", "3 Plätze frei", "alle Plätze belegt".
+	"plaetzeFrei": func(n int) string {
+		switch n {
+		case 0:
+			return "alle Plätze belegt"
+		case 1:
+			return "1 Platz frei"
+		}
+		return strconv.Itoa(n) + " Plätze frei"
+	},
+	"inc": func(i int) int { return i + 1 },
 }
 
 // heute liefert Mitternacht in Berlin; Listen zeigen auch heutige, schon begonnene Termine.
@@ -419,6 +447,10 @@ type terminSeite struct {
 	FristVorbei bool
 	// Begonnen: Trainer erfassen ab jetzt die Anwesenheit statt Zu und Ab.
 	Begonnen bool
+	Dienste  []dienstAnsicht
+	// ImTeam: Das Konto kann selbst Dienste übernehmen (Vereinsadmins ohne Mannschaft nicht).
+	ImTeam       bool
+	DienstFehler string
 }
 
 func (s *teamSeiten) terminDetail(w http.ResponseWriter, r *http.Request) {
@@ -440,6 +472,10 @@ func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v
 	}
 	if seite.Alle, err = s.termine.Rueckmeldungen(ctx, v.ID, t.ID); err != nil {
 		interner(w, "rückmeldungen laden", err)
+		return
+	}
+	if err := s.dienstAnsichten(ctx, v.ID, k.ID, &seite); err != nil {
+		interner(w, "dienste laden", err)
 		return
 	}
 	seite.Titel, seite.Meine = t.Mannschaft, meine[t.ID]
@@ -533,4 +569,34 @@ func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	umleiten(w, r, "/t/"+t.ID)
+}
+
+// dienstAnsichten lädt die Dienste des Termins und für Trainer, wen sie einteilen können.
+func (s *teamSeiten) dienstAnsichten(ctx context.Context, vereinID, kontoID string, seite *terminSeite) error {
+	t := seite.Termin
+	ds, err := s.termine.Dienste(ctx, vereinID, t.ID)
+	if err != nil {
+		return err
+	}
+	seite.ImTeam = !seite.Verwalter
+	var personen []termin.Person
+	if seite.Verwalter {
+		if seite.ImTeam, err = s.termine.GehoertZumTeam(ctx, vereinID, t.MannschaftID, kontoID); err != nil {
+			return err
+		}
+		if personen, err = s.termine.DienstPersonen(ctx, vereinID, t.ID); err != nil {
+			return err
+		}
+	}
+	seite.Dienste = make([]dienstAnsicht, len(ds))
+	for i, d := range ds {
+		a := dienstAnsicht{Dienst: d, Meins: d.Hat(kontoID)}
+		for _, p := range personen {
+			if !d.Hat(p.KontoID) {
+				a.Einteilbar = append(a.Einteilbar, p)
+			}
+		}
+		seite.Dienste[i] = a
+	}
+	return nil
 }
