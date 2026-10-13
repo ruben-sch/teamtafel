@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.2](https://github.com/ruben-sch/teamtafel/compare/v0.1.1...v0.1.2) (2026-10-13)
+
+
+### Features
+
+* Anwesenheitsliste und Anwesenheitsstatistik für Trainer ([#24](https://github.com/ruben-sch/teamtafel/issues/24)) ([85c147d](https://github.com/ruben-sch/teamtafel/commit/85c147dee294a95a88c673651a42985bea8dcb11))
+* Dienste am Termin (Kuchen, Kasse, Trikotwäsche) ([#25](https://github.com/ruben-sch/teamtafel/issues/25)) ([6bdf579](https://github.com/ruben-sch/teamtafel/commit/6bdf5794a76a3cb52d226accff37fd76bfef971d))
+* Kopfzeile zeigt angemeldetes Konto und Rollen ([4e538fe](https://github.com/ruben-sch/teamtafel/commit/4e538fe974d3ad91274d4027e27d82559f42b2ff))
+* Kopfzeile zeigt angemeldetes Konto und Rollen ([7f97ca0](https://github.com/ruben-sch/teamtafel/commit/7f97ca09a6cc3bf5bd95d3010369e6e53588938f))
+* Kopfzeile zeigt bei Eltern die Kinder in der Rolle ([64f3759](https://github.com/ruben-sch/teamtafel/commit/64f37597ab682cc454c51dfb3bd647603a16b4dc))
+* Vereine unter einer Domain als Pfad statt Subdomain ([#22](https://github.com/ruben-sch/teamtafel/issues/22)) ([704b42e](https://github.com/ruben-sch/teamtafel/commit/704b42eb26f99015962a31959537db60525a4765))
+
+
+### Bug Fixes
+
+* Vereinsadresse beim Anlegen aus dem Namen bilden statt abfragen ([90a7030](https://github.com/ruben-sch/teamtafel/commit/90a7030c7eb1c13d5178783dcd6ca39c247c81a5))
+* Vereinsadresse beim Anlegen aus dem Namen bilden statt abfragen ([299ad2c](https://github.com/ruben-sch/teamtafel/commit/299ad2cf1271e4053e5dc726be007a5cfe7bb289))
+
 ## [0.1.1](https://github.com/ruben-sch/teamtafel/compare/v0.1.0...v0.1.1) (2026-10-09)
 
 
