@@ -50,12 +50,12 @@ func kennungAus(ctx context.Context) *kennung {
 	kn, err := q.ermitteln(ctx, k)
 	if err != nil {
 		slog.Error("kennung ermitteln", "err", err)
-		return &kennung{Name: anzeigeName(k, nil, nil)}
+		return &kennung{Name: anzeigeName(k, nil)}
 	}
 	return kn
 }
 
-// ermitteln: Admin (Plattform oder Verein), Trainer, Spieler und Eltern, in dieser Reihenfolge.
+// ermitteln: Admin (Plattform oder Verein), Trainer, Spieler und „Eltern von …“, in dieser Reihenfolge.
 func (q *kennungen) ermitteln(ctx context.Context, k auth.Konto) (*kennung, error) {
 	kn := &kennung{}
 	admin, err := q.rollen.darfVerwalten(ctx, k)
@@ -88,24 +88,23 @@ func (q *kennungen) ermitteln(ctx context.Context, k auth.Konto) (*kennung, erro
 		if len(eigene) > 0 {
 			kn.Rollen = append(kn.Rollen, "Spieler")
 		}
+		// Eltern sagen für alle ihre Kinder zu oder ab, deshalb stehen alle Kinder in der Rolle.
 		if len(kinder) > 0 {
-			kn.Rollen = append(kn.Rollen, "Eltern")
+			kn.Rollen = append(kn.Rollen, "Eltern von "+strings.Join(kinder, " und "))
 		}
 	}
-	kn.Name = anzeigeName(k, eigene, kinder)
+	kn.Name = anzeigeName(k, eigene)
 	return kn, nil
 }
 
-// anzeigeName folgt der Anzeige bei den Diensten: Name, sonst eigener Vorname als Spieler,
-// sonst „Eltern von …“, sonst die E-Mail-Adresse.
-func anzeigeName(k auth.Konto, eigene, kinder []string) string {
+// anzeigeName: Name, sonst eigener Vorname als Spieler, sonst die E-Mail-Adresse.
+// Die Kinder von Eltern stehen in der Rolle „Eltern von …“.
+func anzeigeName(k auth.Konto, eigene []string) string {
 	switch {
 	case strings.TrimSpace(k.Name) != "":
 		return k.Name
 	case len(eigene) > 0:
 		return eigene[0]
-	case len(kinder) > 0:
-		return "Eltern von " + strings.Join(kinder, " und ")
 	default:
 		return k.Email
 	}

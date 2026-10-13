@@ -35,9 +35,9 @@ func TestKopfzeileZeigtKontoUndRolle(t *testing.T) {
 		pfad   string
 		wollen []string
 	}{
-		{"eltern start", w.eltern, "/", []string{"Eltern von Ben", ">Eltern<"}},
-		{"eltern termin", w.eltern, "/t/" + tm.ID, []string{"Eltern von Ben", ">Eltern<"}},
-		{"eltern einstellungen", w.eltern, "/einstellungen", []string{"Eltern von Ben"}},
+		{"eltern start", w.eltern, "/", []string{">Eltern von Ben<"}},
+		{"eltern termin", w.eltern, "/t/" + tm.ID, []string{">Eltern von Ben<"}},
+		{"eltern einstellungen", w.eltern, "/einstellungen", []string{">Eltern von Ben<"}},
 		{"trainer termin", trainerCookie, "/t/" + tm.ID, []string{trainer.Email, ">Trainer<", ">Admin<"}},
 		{"trainer mannschaft", trainerCookie, "/m/" + w.bambini.ID, []string{trainer.Email, ">Trainer<"}},
 		{"ohne rolle", w.fremd, "/", []string{">Noch ohne Team<"}},
