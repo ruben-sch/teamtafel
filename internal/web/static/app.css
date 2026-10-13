@@ -66,6 +66,13 @@ p { margin: 0; }
 .marke .verein { font-size: 1.625rem; line-height: 1; }
 .kopf .unter { font-size: .9375rem; opacity: .85; }
 .zurueck { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; font-weight: 600; font-size: .9375rem; text-decoration: none; opacity: .9; align-self: flex-start; }
+/* Kennung über dem Kopf: wer angemeldet ist und mit welchen Rollen */
+.kennung { background: var(--verein); color: #fff; border-bottom: 1px solid rgba(255, 255, 255, .16); }
+.kennung-innen { max-width: 34rem; margin: 0 auto; padding: .4rem 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; font-size: .8125rem; line-height: 1.3; }
+.kennung .wer { color: #fff; text-decoration: none; opacity: .9; min-width: 0; overflow-wrap: anywhere; }
+.kennung .wer b { font-weight: 600; opacity: 1; }
+.kennung .rollen { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
+.kennung .rolle { padding: .05rem .5rem; border-radius: 999px; background: rgba(255, 255, 255, .18); font-weight: 600; font-size: .75rem; letter-spacing: .02em; }
 .iconknopf { flex: 0 0 auto; width: 2.75rem; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; border-radius: .75rem; background: rgba(255, 255, 255, .14); color: #fff; }
 
 /* Inhalt */

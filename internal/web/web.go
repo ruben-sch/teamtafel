@@ -181,7 +181,8 @@ func NewHandler(o Options) http.Handler {
 	root := http.NewServeMux()
 	// Ohne Mandantenauflösung, weil der Docker-Healthcheck localhost aufruft.
 	root.HandleFunc("GET /healthz", healthz(o.DB))
-	root.Handle("/", mandant(o.Scheme, o.BaseHost, o.Vereine, sitzung(o.Auth, app)))
+	kn := &kennungen{rollen: rollen, team: o.Team}
+	root.Handle("/", mandant(o.Scheme, o.BaseHost, o.Vereine, sitzung(o.Auth, mitKennung(kn, app))))
 
 	// CSRF: Schreibende Requests von fremden Origins lehnt die Standardbibliothek
 	// anhand von Sec-Fetch-Site bzw. Origin ab; dazu kommt SameSite=Lax am Cookie.
@@ -270,7 +271,13 @@ func render(w http.ResponseWriter, r *http.Request, name string, data any) {
 func renderStatus(w http.ResponseWriter, r *http.Request, status int, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	if err := vorlagen(basis(r)).ExecuteTemplate(w, name, data); err != nil {
+	t := vorlagen(basis(r))
+	kopf := kopfDaten{Titel: titelAus(data), Kennung: kennungAus(r.Context())}
+	if err := t.ExecuteTemplate(w, "kopf", kopf); err != nil {
+		slog.Error("template rendern", "template", "kopf", "err", err)
+		return
+	}
+	if err := t.ExecuteTemplate(w, name, data); err != nil {
 		slog.Error("template rendern", "template", name, "err", err)
 	}
 }
