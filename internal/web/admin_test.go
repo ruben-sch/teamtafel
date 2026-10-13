@@ -80,9 +80,14 @@ func TestSuperadminLegtVereinMitAdminAn(t *testing.T) {
 		t.Fatalf("startseite ohne admin-link: %s", body)
 	}
 
-	slug := fmt.Sprintf("sv%d", time.Now().UnixNano())
+	if body := w.do(haupt, http.MethodGet, "/admin", nil, chef).Body.String(); strings.Contains(body, `name="slug"`) {
+		t.Fatalf("formular fragt noch nach der adresse: %s", body)
+	}
+
+	name := fmt.Sprintf("SV Neu %d", time.Now().UnixNano())
+	slug := verein.SlugAus(name)
 	vorstand := fmt.Sprintf("vorstand-%d@example.org", time.Now().UnixNano())
-	form := url.Values{"slug": {slug}, "name": {"SV Neu"}, "admin": {vorstand}}
+	form := url.Values{"name": {name}, "admin": {vorstand}}
 	if rec := w.do(haupt, http.MethodPost, "/admin/vereine", form, fremd); rec.Code != http.StatusForbidden {
 		t.Fatalf("fremd legt an: %d", rec.Code)
 	}
@@ -90,16 +95,13 @@ func TestSuperadminLegtVereinMitAdminAn(t *testing.T) {
 		t.Fatalf("anlegen: %d %s", rec.Code, rec.Body.String())
 	}
 	body := w.do(haupt, http.MethodGet, "/admin", nil, chef).Body.String()
-	if !strings.Contains(body, "SV Neu") || !strings.Contains(body, "https://teamtafel.example/"+slug) {
+	if !strings.Contains(body, name) || !strings.Contains(body, "https://teamtafel.example/"+slug) {
 		t.Fatalf("verein fehlt in der liste: %s", body)
 	}
 
-	// Doppelter Slug und ungültige Angaben zeigen einen Fehler.
-	if rec := w.do(haupt, http.MethodPost, "/admin/vereine", form, chef); rec.Code != http.StatusBadRequest {
-		t.Fatalf("doppelt: %d", rec.Code)
-	}
-	if rec := w.do(haupt, http.MethodPost, "/admin/vereine", url.Values{"slug": {"Admin"}, "name": {"x"}, "admin": {vorstand}}, chef); rec.Code != http.StatusBadRequest {
-		t.Fatalf("ungültiger slug: %d", rec.Code)
+	// Ohne Namen gibt es einen Fehler.
+	if rec := w.do(haupt, http.MethodPost, "/admin/vereine", url.Values{"name": {" "}, "admin": {vorstand}}, chef); rec.Code != http.StatusBadRequest {
+		t.Fatalf("ohne namen: %d", rec.Code)
 	}
 
 	v, err := w.verein.BySlug(context.Background(), slug)

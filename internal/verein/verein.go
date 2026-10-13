@@ -57,6 +57,41 @@ func SlugGueltig(s string) bool {
 	return slugPattern.MatchString(s) && !reserviert[s]
 }
 
+// SlugAus bildet aus dem Vereinsnamen einen gültigen Slug: Kleinbuchstaben, Umlaute
+// umschrieben, alles andere wird zu Bindestrichen. Reservierte Namen bekommen "-verein".
+func SlugAus(name string) string {
+	var b strings.Builder
+	strich := false
+	for _, r := range strings.ToLower(name) {
+		teil := umschrift[r]
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			teil = string(r)
+		}
+		if teil == "" {
+			strich = true
+			continue
+		}
+		if strich && b.Len() > 0 {
+			b.WriteByte('-')
+		}
+		strich = false
+		b.WriteString(teil)
+	}
+	slug := b.String()
+	if len(slug) > 55 {
+		slug = strings.TrimRight(slug[:55], "-")
+	}
+	switch {
+	case slug == "":
+		return "verein"
+	case reserviert[slug]:
+		return slug + "-verein"
+	}
+	return slug
+}
+
+var umschrift = map[rune]string{'ä': "ae", 'ö': "oe", 'ü': "ue", 'ß': "ss", 'é': "e", 'è': "e", 'á': "a", 'à': "a"}
+
 // Verein ist ein Mandant.
 type Verein struct {
 	ID   string
@@ -102,6 +137,23 @@ func (s *Store) Anlegen(ctx context.Context, slug, name string) (Verein, error) 
 		return Verein{}, fmt.Errorf("verein anlegen: %w", err)
 	}
 	return v, nil
+}
+
+// AnlegenAusName legt einen Verein an und bildet den Slug aus dem Namen. Ist er schon
+// vergeben, hängt es -2, -3 … an.
+func (s *Store) AnlegenAusName(ctx context.Context, name string) (Verein, error) {
+	if strings.TrimSpace(name) == "" {
+		return Verein{}, ErrUngueltigerName
+	}
+	basis := SlugAus(name)
+	slug := basis
+	for i := 2; ; i++ {
+		v, err := s.Anlegen(ctx, slug, name)
+		if !errors.Is(err, ErrSlugVergeben) || i > 100 {
+			return v, err
+		}
+		slug = fmt.Sprintf("%s-%d", basis, i)
+	}
 }
 
 // BySlug sucht einen Verein anhand seines Slugs.

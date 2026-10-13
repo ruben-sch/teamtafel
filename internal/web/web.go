@@ -50,7 +50,7 @@ type Vereine interface {
 	BySlug(ctx context.Context, slug string) (verein.Verein, error)
 	Mannschaften(ctx context.Context, vereinID string) ([]verein.Mannschaft, error)
 	Alle(ctx context.Context) ([]verein.Verein, error)
-	Anlegen(ctx context.Context, slug, name string) (verein.Verein, error)
+	AnlegenAusName(ctx context.Context, name string) (verein.Verein, error)
 	MannschaftAnlegen(ctx context.Context, vereinID, saison, name string) (verein.Mannschaft, error)
 	AdminHinzufuegen(ctx context.Context, vereinID, kontoID string) error
 	IstAdmin(ctx context.Context, vereinID, kontoID string) (bool, error)
