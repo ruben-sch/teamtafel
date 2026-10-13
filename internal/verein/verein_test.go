@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,6 +63,46 @@ func TestSlugGueltig(t *testing.T) {
 		if verein.SlugGueltig(s) {
 			t.Errorf("%q gilt als gültig", s)
 		}
+	}
+}
+
+func TestSlugAus(t *testing.T) {
+	for name, want := range map[string]string{
+		"TSV Beispiel":            "tsv-beispiel",
+		"SGM Heckengäu":           "sgm-heckengaeu",
+		"  1. FC Köln-Süd e.V.  ": "1-fc-koeln-sued-e-v",
+		"Fußballfreunde Öhringen": "fussballfreunde-oehringen",
+		"Admin":                   "admin-verein",
+		"!!!":                     "verein",
+	} {
+		if got := verein.SlugAus(name); got != want {
+			t.Errorf("SlugAus(%q) = %q, want %q", name, got, want)
+		}
+	}
+	if got := verein.SlugAus(strings.Repeat("a", 100)); len(got) > 63 || !verein.SlugGueltig(got) {
+		t.Errorf("langer Name ergibt %q", got)
+	}
+}
+
+func TestAnlegenAusNameHaengtBeiKollisionZahlAn(t *testing.T) {
+	pool := dbtest.AppPool(t)
+	store := verein.NewStore(pool)
+	ctx := context.Background()
+
+	name := fmt.Sprintf("SV Doppelt %d", time.Now().UnixNano())
+	a, err := store.AnlegenAusName(ctx, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := store.AnlegenAusName(ctx, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Slug != verein.SlugAus(name) || b.Slug != a.Slug+"-2" {
+		t.Fatalf("slugs = %q, %q", a.Slug, b.Slug)
+	}
+	if _, err := store.AnlegenAusName(ctx, "  "); !errors.Is(err, verein.ErrUngueltigerName) {
+		t.Fatalf("leerer name: %v", err)
 	}
 }
 

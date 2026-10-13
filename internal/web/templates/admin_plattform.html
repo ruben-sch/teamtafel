@@ -23,8 +23,6 @@
     <form class="karte" method="post" action="{{basis}}/admin/vereine">
       <label for="name">Name</label>
       <input type="text" id="name" name="name" value="{{.Form.name}}" placeholder="TSV Beispiel" required>
-      <label for="slug">Adresse</label>
-      <input type="text" id="slug" name="slug" value="{{.Form.slug}}" placeholder="tsv-beispiel" pattern="[a-z0-9-]+" required>
       <label for="admin">E-Mail des Vereinsadmins</label>
       <input type="email" id="admin" name="admin" value="{{.Form.admin}}" required>
       {{- if .Fehler}}

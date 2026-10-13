@@ -33,7 +33,7 @@ func (f fakeVereine) Mannschaften(_ context.Context, vereinID string) ([]verein.
 }
 
 func (f fakeVereine) Alle(context.Context) ([]verein.Verein, error) { return nil, nil }
-func (f fakeVereine) Anlegen(context.Context, string, string) (verein.Verein, error) {
+func (f fakeVereine) AnlegenAusName(context.Context, string) (verein.Verein, error) {
 	return verein.Verein{}, errors.ErrUnsupported
 }
 func (f fakeVereine) MannschaftAnlegen(context.Context, string, string, string) (verein.Mannschaft, error) {

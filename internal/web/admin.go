@@ -96,7 +96,7 @@ func (a *verwaltung) zeigen(w http.ResponseWriter, r *http.Request, status int, 
 		Vereine []eintrag
 		Fehler  string
 		Form    map[string]string
-	}{Titel: "Plattform-Verwaltung", Fehler: fehler, Form: formWerte(r, "slug", "name", "admin")}
+	}{Titel: "Plattform-Verwaltung", Fehler: fehler, Form: formWerte(r, "name", "admin")}
 	for _, v := range vs {
 		data.Vereine = append(data.Vereine, eintrag{v, a.scheme + "://" + r.Host + "/" + v.Slug})
 	}
@@ -158,15 +158,8 @@ func (a *verwaltung) vereinAnlegen(w http.ResponseWriter, r *http.Request) {
 		a.zeigen(w, r, http.StatusBadRequest, "Die Admin-Adresse sieht nicht nach einer E-Mail-Adresse aus.")
 		return
 	}
-	v, err := a.vereine.Anlegen(ctx, strings.ToLower(strings.TrimSpace(r.PostFormValue("slug"))), r.PostFormValue("name"))
+	v, err := a.vereine.AnlegenAusName(ctx, r.PostFormValue("name"))
 	switch {
-	case errors.Is(err, verein.ErrSlugVergeben):
-		a.zeigen(w, r, http.StatusBadRequest, "Diese Adresse ist schon vergeben.")
-		return
-	case errors.Is(err, verein.ErrUngueltigerSlug):
-		a.zeigen(w, r, http.StatusBadRequest,
-			"Die Adresse darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten und nicht reserviert sein.")
-		return
 	case errors.Is(err, verein.ErrUngueltigerName):
 		a.zeigen(w, r, http.StatusBadRequest, "Bitte einen Namen angeben.")
 		return
