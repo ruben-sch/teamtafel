@@ -15,8 +15,9 @@
       <button>Termin anlegen</button>
     </form>
 
-    <h2>Wöchentliches Training</h2>
-    <p class="leise">Die Termine entstehen jeweils acht Wochen im Voraus und lassen sich einzeln ändern oder absagen.</p>
+    <h2>Wiederkehrendes Training</h2>
+    <p class="leise">Die Termine entstehen jeweils acht Wochen im Voraus und lassen sich einzeln ändern oder absagen.
+      Alle 14 Tage zählt ab dem ersten Termin ab Startdatum.</p>
     <form class="karte" method="post" action="{{basis}}/m/{{.Mannschaft.ID}}/serien">
       <div class="zeile">
         <div><label for="wochentag">Wochentag</label>
@@ -26,6 +27,21 @@
             <option value="{{inc $i}}"{{if eq (print (inc $i)) $wt}} selected{{end}}>{{$n}}</option>
             {{- end}}
           </select></div>
+        <div><label for="rhythmus">Rhythmus</label>
+          <select id="rhythmus" name="rhythmus">
+            <option value="woechentlich"{{if eq .Serie.Rhythmus "woechentlich"}} selected{{end}}>Jede Woche</option>
+            <option value="zweiwoechentlich"{{if eq .Serie.Rhythmus "zweiwoechentlich"}} selected{{end}}>Alle 14 Tage</option>
+            <option value="monatlich"{{if eq .Serie.Rhythmus "monatlich"}} selected{{end}}>Einmal im Monat</option>
+          </select></div>
+        <div><label for="monatswoche">Im Monat <span class="leise">(nur monatlich)</span></label>
+          <select id="monatswoche" name="monatswoche">
+            {{- $mw := .Serie.Monatswoche}}
+            {{- range $i, $n := (list "1." "2." "3." "4." "Letzter")}}
+            <option value="{{inc $i}}"{{if eq (print (inc $i)) $mw}} selected{{end}}>{{$n}}</option>
+            {{- end}}
+          </select></div>
+      </div>
+      <div class="zeile">
         <div><label for="uhrzeit">Beginn</label><input type="time" id="uhrzeit" name="uhrzeit" value="{{.Serie.Uhrzeit}}" required></div>
         <div><label for="dauer">Dauer (Min.)</label><input type="number" id="dauer" name="dauer" value="{{.Serie.Dauer}}" min="1" required></div>
       </div>

@@ -1,4 +1,4 @@
-// Package termin verwaltet Termine und wöchentliche Terminserien.
+// Package termin verwaltet Termine und wiederkehrende Terminserien.
 package termin
 
 import (
@@ -85,9 +85,23 @@ type Termin struct {
 	Zu, Ab, Offen int
 }
 
-// SerieDaten beschreiben ein wöchentliches Training.
+// Rhythmus einer Serie.
+const (
+	RhythmusWoechentlich     = "woechentlich"
+	RhythmusZweiwoechentlich = "zweiwoechentlich"
+	RhythmusMonatlich        = "monatlich"
+)
+
+// LetzteWoche als Monatswoche: der letzte passende Wochentag im Monat.
+const LetzteWoche = 5
+
+// SerieDaten beschreiben ein wiederkehrendes Training.
 type SerieDaten struct {
 	Wochentag time.Weekday
+	// Rhythmus ist leer oder RhythmusWoechentlich, RhythmusZweiwoechentlich, RhythmusMonatlich.
+	Rhythmus string
+	// Monatswoche nur bei RhythmusMonatlich: 1 bis 4 oder LetzteWoche.
+	Monatswoche int
 	// Uhrzeit des Beginns in Europe/Berlin, "HH:MM".
 	Uhrzeit     string
 	Dauer       time.Duration
@@ -108,18 +122,63 @@ type Serie struct {
 
 func (d *SerieDaten) pruefen() (stunde, minute int, err error) {
 	d.Ort = strings.TrimSpace(d.Ort)
+	if d.Rhythmus == "" {
+		d.Rhythmus = RhythmusWoechentlich
+	}
+	if d.Rhythmus != RhythmusMonatlich {
+		d.Monatswoche = 0
+	}
 	t, perr := time.Parse("15:04", d.Uhrzeit)
 	switch {
 	case perr != nil:
 		return 0, 0, fmt.Errorf("%w: uhrzeit %q", ErrUngueltig, d.Uhrzeit)
 	case d.Wochentag < time.Sunday || d.Wochentag > time.Saturday:
 		return 0, 0, fmt.Errorf("%w: wochentag", ErrUngueltig)
+	case d.Rhythmus != RhythmusWoechentlich && d.Rhythmus != RhythmusZweiwoechentlich && d.Rhythmus != RhythmusMonatlich:
+		return 0, 0, fmt.Errorf("%w: rhythmus %q", ErrUngueltig, d.Rhythmus)
+	case d.Rhythmus == RhythmusMonatlich && (d.Monatswoche < 1 || d.Monatswoche > LetzteWoche):
+		return 0, 0, fmt.Errorf("%w: monatswoche", ErrUngueltig)
 	case d.Dauer <= 0 || d.TreffVorher < 0 || d.FristVorher < 0:
 		return 0, 0, fmt.Errorf("%w: dauer", ErrUngueltig)
 	case d.GueltigVon.IsZero() || (d.GueltigBis != nil && tag(*d.GueltigBis).Before(tag(d.GueltigVon))):
 		return 0, 0, fmt.Errorf("%w: gültigkeit", ErrUngueltig)
 	}
 	return t.Hour(), t.Minute(), nil
+}
+
+// trifft sagt, ob die Serie am Kalendertag d einen Termin hat.
+func (d *SerieDaten) trifft(t time.Time) bool {
+	if t.Weekday() != d.Wochentag {
+		return false
+	}
+	switch d.Rhythmus {
+	case RhythmusZweiwoechentlich:
+		// Takt ab dem ersten passenden Wochentag ab GueltigVon; tag() ist UTC, also volle Tage.
+		von := tag(d.GueltigVon)
+		anker := von.AddDate(0, 0, (int(d.Wochentag)-int(von.Weekday())+7)%7)
+		return int(t.Sub(anker).Hours()/24)%14 == 0
+	case RhythmusMonatlich:
+		if d.Monatswoche == LetzteWoche {
+			return t.AddDate(0, 0, 7).Month() != t.Month()
+		}
+		return (t.Day()-1)/7+1 == d.Monatswoche
+	}
+	return true
+}
+
+// Beschreibung nennt Wochentag und Rhythmus, etwa "1. Samstag im Monat".
+func (d SerieDaten) Beschreibung() string {
+	wt := Wochentage[d.Wochentag]
+	switch d.Rhythmus {
+	case RhythmusZweiwoechentlich:
+		return wt + ", alle 14 Tage"
+	case RhythmusMonatlich:
+		if d.Monatswoche == LetzteWoche {
+			return "Letzter " + wt + " im Monat"
+		}
+		return fmt.Sprintf("%d. %s im Monat", d.Monatswoche, wt)
+	}
+	return wt
 }
 
 // tag liefert den Kalendertag als Mitternacht UTC, passend zu SQL date.
@@ -354,9 +413,10 @@ func (s *Store) SerieAnlegen(ctx context.Context, vereinID, mannschaftID string,
 	}
 	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `
-INSERT INTO terminserie (verein_id, mannschaft_id, wochentag, uhrzeit, dauer_min, treff_min, frist_min, ort, gueltig_von, gueltig_bis)
-VALUES ($1, $2, $3, $4::time, $5, $6, $7, $8, $9, $10) RETURNING id::text`,
-			vereinID, mannschaftID, isoWochentag(d.Wochentag), d.Uhrzeit, int(d.Dauer.Minutes()),
+INSERT INTO terminserie (verein_id, mannschaft_id, wochentag, rhythmus, monatswoche, uhrzeit, dauer_min, treff_min,
+	frist_min, ort, gueltig_von, gueltig_bis)
+VALUES ($1, $2, $3, $4, NULLIF($5, 0), $6::time, $7, $8, $9, $10, $11, $12) RETURNING id::text`,
+			vereinID, mannschaftID, isoWochentag(d.Wochentag), d.Rhythmus, d.Monatswoche, d.Uhrzeit, int(d.Dauer.Minutes()),
 			int(d.TreffVorher.Minutes()), int(d.FristVorher.Minutes()), d.Ort, tag(d.GueltigVon), bis).Scan(&sr.ID)
 		if err != nil {
 			return err
@@ -384,7 +444,7 @@ func (s *Store) erzeugen(ctx context.Context, tx pgx.Tx, vereinID string, sr Ser
 		bis = tag(*sr.GueltigBis)
 	}
 	for d := von; !d.After(bis); d = d.AddDate(0, 0, 1) {
-		if d.Weekday() != sr.Wochentag {
+		if !sr.trifft(d) {
 			continue
 		}
 		beginn := time.Date(d.Year(), d.Month(), d.Day(), stunde, minute, 0, 0, Zeitzone)
@@ -417,7 +477,7 @@ func (s *Store) serien(ctx context.Context, vereinID, filter string, args ...any
 	var out []Serie
 	err := s.inVerein(ctx, vereinID, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-SELECT id::text, mannschaft_id::text, wochentag, to_char(uhrzeit, 'HH24:MI'), dauer_min, treff_min, frist_min, ort,
+SELECT id::text, mannschaft_id::text, wochentag, rhythmus, coalesce(monatswoche, 0), to_char(uhrzeit, 'HH24:MI'), dauer_min, treff_min, frist_min, ort,
 	gueltig_von, gueltig_bis
 FROM terminserie WHERE beendet_am IS NULL AND `+filter+` ORDER BY wochentag, uhrzeit`, args...)
 		if err != nil {
@@ -435,7 +495,7 @@ FROM terminserie WHERE beendet_am IS NULL AND `+filter+` ORDER BY wochentag, uhr
 func scanSerie(r pgx.CollectableRow) (Serie, error) {
 	var sr Serie
 	var wt, dauer, treff, frist int
-	err := r.Scan(&sr.ID, &sr.MannschaftID, &wt, &sr.Uhrzeit, &dauer, &treff, &frist, &sr.Ort, &sr.GueltigVon, &sr.GueltigBis)
+	err := r.Scan(&sr.ID, &sr.MannschaftID, &wt, &sr.Rhythmus, &sr.Monatswoche, &sr.Uhrzeit, &dauer, &treff, &frist, &sr.Ort, &sr.GueltigVon, &sr.GueltigBis)
 	sr.Wochentag = time.Weekday(wt % 7)
 	sr.Dauer, sr.TreffVorher, sr.FristVorher = time.Duration(dauer)*time.Minute,
 		time.Duration(treff)*time.Minute, time.Duration(frist)*time.Minute

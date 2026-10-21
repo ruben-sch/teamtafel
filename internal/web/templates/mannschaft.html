@@ -43,7 +43,7 @@
       <ul class="liste">
         {{- range .Serien}}
         <li>
-          <span class="name">{{wochentag .Wochentag}}, {{.Uhrzeit}} Uhr<small>{{minuten .Dauer}} Minuten{{if .Ort}} · {{.Ort}}{{end}}</small></span>
+          <span class="name">{{.Beschreibung}}, {{.Uhrzeit}} Uhr<small>{{minuten .Dauer}} Minuten{{if .Ort}} · {{.Ort}}{{end}}</small></span>
           <form method="post" action="{{basis}}/serien/{{.ID}}/beenden"><button class="zweit">Beenden</button></form>
         </li>
         {{- end}}

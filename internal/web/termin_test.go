@@ -169,6 +169,23 @@ func TestTrainerLegtSerieAnUndBeendetSie(t *testing.T) {
 	}
 }
 
+func TestTrainerLegtMonatlicheSerieAn(t *testing.T) {
+	w := neueTerminWelt(t)
+	m := "/m/" + w.bambini.ID
+	form := url.Values{"wochentag": {"6"}, "rhythmus": {termin.RhythmusMonatlich}, "monatswoche": {"5"},
+		"uhrzeit": {"10:00"}, "dauer": {"120"}, "gueltig_von": {time.Now().In(termin.Zeitzone).Format("2006-01-02")}}
+	if rec := w.do(http.MethodPost, m+"/serien", form, w.trainer); rec.Code != http.StatusSeeOther {
+		t.Fatalf("serie: %d %s", rec.Code, rec.Body.String())
+	}
+	if body := w.do(http.MethodGet, m, nil, w.trainer).Body.String(); !strings.Contains(body, "Letzter Samstag im Monat, 10:00 Uhr") {
+		t.Fatalf("monatliche serie nicht gelistet: %s", body)
+	}
+	form.Set("monatswoche", "0")
+	if rec := w.do(http.MethodPost, m+"/serien", form, w.trainer); rec.Code != http.StatusBadRequest {
+		t.Fatalf("monatlich ohne woche: %d", rec.Code)
+	}
+}
+
 func TestVereinsadminDarfTermineAnlegen(t *testing.T) {
 	w := neueTerminWelt(t)
 	ctx := context.Background()
