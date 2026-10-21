@@ -176,3 +176,22 @@ func TestAufraeumenLoeschtAbgelaufeneTokensUndSessions(t *testing.T) {
 		t.Error("abgelaufene session nicht gelöscht")
 	}
 }
+
+func TestKontoBekannt(t *testing.T) {
+	store := auth.NewStore(dbtest.AppPool(t))
+	ctx := context.Background()
+	addr := email()
+
+	if ok, err := store.KontoBekannt(ctx, addr); err != nil || ok {
+		t.Fatalf("vor dem anlegen: %v, %v", ok, err)
+	}
+	if _, err := store.KontoFuer(ctx, addr); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := store.KontoBekannt(ctx, addr); err != nil || !ok {
+		t.Fatalf("nach dem anlegen: %v, %v", ok, err)
+	}
+	if _, err := store.KontoBekannt(ctx, "keine-adresse"); !errors.Is(err, auth.ErrUngueltigeAdresse) {
+		t.Fatalf("err = %v, erwartet ErrUngueltigeAdresse", err)
+	}
+}
