@@ -188,19 +188,35 @@ func TestAblehnen(t *testing.T) {
 
 func TestLoginLeitetNachEinloesenWeiter(t *testing.T) {
 	w := neueTeamWelt(t)
-	rec := w.do(http.MethodGet, "/login?weiter=%2Fjoin%2Fabc", nil, nil)
-	if !strings.Contains(rec.Body.String(), `value="/join/abc"`) {
+	token, err := w.team.EinladungErneuern(context.Background(), w.verein.ID, w.bambini.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ziel := "/join/" + token
+	rec := w.do(http.MethodGet, "/login?weiter="+url.QueryEscape(ziel), nil, nil)
+	if !strings.Contains(rec.Body.String(), `value="`+ziel+`"`) {
 		t.Fatalf("weiter fehlt im formular: %s", rec.Body.String())
 	}
-	w.do(http.MethodPost, "/login", url.Values{"email": {"weiter@example.org"}, "weiter": {"/join/abc"}}, nil)
+	// Neue Adresse ohne Konto: Der gültige Team-Link reicht für den Login-Link.
+	addr := fmt.Sprintf("neu-%d@example.org", time.Now().UnixNano())
+	w.do(http.MethodPost, "/login", url.Values{"email": {addr}, "weiter": {ziel}}, nil)
 	mail := w.mailer.letzte(t)
 	link := regexp.MustCompile(`https://[^/]+/[a-z0-9-]+(/auth/\S+)`).FindStringSubmatch(mail.text)
-	if link == nil || !strings.Contains(link[1], "weiter=%2Fjoin%2Fabc") {
+	if link == nil || !strings.Contains(link[1], "weiter="+url.QueryEscape(ziel)) {
 		t.Fatalf("link ohne weiter: %q", mail.text)
 	}
 	rec = w.do(http.MethodPost, link[1], url.Values{}, nil)
-	if rec.Header().Get("Location") != w.basis()+"/join/abc" {
+	if rec.Header().Get("Location") != w.basis()+ziel {
 		t.Fatalf("weiterleitung = %q", rec.Header().Get("Location"))
+	}
+}
+
+func TestLoginMitUngueltigemTeamLinkOhneMail(t *testing.T) {
+	w := neueTeamWelt(t)
+	addr := fmt.Sprintf("neu-%d@example.org", time.Now().UnixNano())
+	rec := w.do(http.MethodPost, "/login", url.Values{"email": {addr}, "weiter": {"/join/abc"}}, nil)
+	if rec.Code != http.StatusOK || len(w.mailer.mails) != 0 {
+		t.Fatalf("status = %d, mails = %d", rec.Code, len(w.mailer.mails))
 	}
 }
 

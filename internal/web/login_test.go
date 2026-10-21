@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/dbtest"
@@ -38,17 +40,26 @@ func (f *fakeMailer) letzte(t *testing.T) gesendeteMail {
 	return f.mails[len(f.mails)-1]
 }
 
-func loginHandler(t *testing.T, m *fakeMailer) http.Handler {
+func loginHandler(t *testing.T, m *fakeMailer, superadmins ...string) http.Handler {
 	t.Helper()
 	return NewHandler(Options{
-		DB:       fakePinger{},
-		Vereine:  fakeVereine{},
-		Auth:     auth.NewStore(dbtest.AppPool(t)),
-		Mailer:   m,
-		BaseHost: "teamtafel.example",
-		Scheme:   "https",
-		Version:  "test",
+		DB:          fakePinger{},
+		Vereine:     fakeVereine{},
+		Auth:        auth.NewStore(dbtest.AppPool(t)),
+		Mailer:      m,
+		Superadmins: superadmins,
+		BaseHost:    "teamtafel.example",
+		Scheme:      "https",
+		Version:     "test",
 	})
+}
+
+// kontoAnlegen legt ein Konto an, damit die Adresse einen Login-Link bekommt.
+func kontoAnlegen(t *testing.T, email string) {
+	t.Helper()
+	if _, err := auth.NewStore(dbtest.AppPool(t)).KontoFuer(context.Background(), email); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func do(h http.Handler, method, target string, form url.Values, cookies ...*http.Cookie) *httptest.ResponseRecorder {
@@ -76,6 +87,7 @@ var linkPattern = regexp.MustCompile(`https://teamtafel\.example(/auth/[A-Za-z0-
 func TestMagicLinkLoginEndeZuEnde(t *testing.T) {
 	m := &fakeMailer{}
 	h := loginHandler(t, m)
+	kontoAnlegen(t, "eltern@example.org")
 
 	if rec := do(h, http.MethodGet, "/login", nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `name="email"`) {
 		t.Fatalf("GET /login: %d", rec.Code)
@@ -149,6 +161,7 @@ func TestLoginMitUngueltigerAdresse(t *testing.T) {
 func TestLoginRateLimitProAdresse(t *testing.T) {
 	m := &fakeMailer{}
 	h := loginHandler(t, m)
+	kontoAnlegen(t, "limit@example.org")
 	var last int
 	for i := 0; i < 6; i++ {
 		last = do(h, http.MethodPost, "/login", url.Values{"email": {"limit@example.org"}}).Code
@@ -158,6 +171,41 @@ func TestLoginRateLimitProAdresse(t *testing.T) {
 	}
 	if len(m.mails) != 5 {
 		t.Fatalf("%d mails, erwartet 5", len(m.mails))
+	}
+}
+
+func TestLoginOhneKontoVerschicktKeineMail(t *testing.T) {
+	m := &fakeMailer{}
+	addr := fmt.Sprintf("fremd-%d@example.org", time.Now().UnixNano())
+	rec := do(loginHandler(t, m), http.MethodPost, "/login", url.Values{"email": {addr}})
+	// Dieselbe Seite wie bei bekannten Adressen, damit sich Konten nicht ausforschen lassen.
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Postfach") || !strings.Contains(rec.Body.String(), "Team-Link") {
+		t.Fatalf("status = %d\n%s", rec.Code, rec.Body.String())
+	}
+	if len(m.mails) != 0 {
+		t.Fatalf("mail an unbekannte adresse verschickt: %+v", m.mails)
+	}
+}
+
+func TestLoginSuperadminOhneKonto(t *testing.T) {
+	m := &fakeMailer{}
+	addr := fmt.Sprintf("chef-%d@example.org", time.Now().UnixNano())
+	do(loginHandler(t, m, addr), http.MethodPost, "/login", url.Values{"email": {addr}})
+	if mail := m.letzte(t); mail.an != addr {
+		t.Fatalf("mail an %q", mail.an)
+	}
+}
+
+func TestClientIPNimmtEintragDesProxys(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/login", nil)
+	req.RemoteAddr = "172.18.0.2:4711"
+	if got := clientIP(req); got != "172.18.0.2" {
+		t.Errorf("ohne header: %q", got)
+	}
+	// Den linken Teil setzt der Client selbst, den rechten hängt Traefik an.
+	req.Header.Set("X-Forwarded-For", "1.2.3.4, 203.0.113.7")
+	if got := clientIP(req); got != "203.0.113.7" {
+		t.Errorf("mit header: %q", got)
 	}
 }
 

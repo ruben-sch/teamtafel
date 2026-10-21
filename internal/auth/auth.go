@@ -132,6 +132,19 @@ RETURNING id::text, name`, email).Scan(&k.ID, &k.Name)
 	return k, nil
 }
 
+// KontoBekannt sagt, ob es zur Adresse schon ein Konto gibt.
+func (s *Store) KontoBekannt(ctx context.Context, email string) (bool, error) {
+	email = NormalisiereEmail(email)
+	if a, err := mail.ParseAddress(email); err != nil || a.Address != email {
+		return false, ErrUngueltigeAdresse
+	}
+	var ok bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM konto WHERE email = $1)`, email).Scan(&ok); err != nil {
+		return false, fmt.Errorf("konto suchen: %w", err)
+	}
+	return ok, nil
+}
+
 // Sitzung liefert das Konto einer gültigen Session und verlängert sie gleitend.
 func (s *Store) Sitzung(ctx context.Context, token string) (Konto, error) {
 	now := s.Now()

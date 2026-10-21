@@ -63,6 +63,7 @@ type Auth interface {
 	LinkAnfordern(ctx context.Context, email string) (string, error)
 	Einloesen(ctx context.Context, token string) (string, auth.Konto, error)
 	KontoFuer(ctx context.Context, email string) (auth.Konto, error)
+	KontoBekannt(ctx context.Context, email string) (bool, error)
 	Sitzung(ctx context.Context, token string) (auth.Konto, error)
 	Abmelden(ctx context.Context, token string) error
 }
@@ -114,6 +115,8 @@ func NewHandler(o Options) http.Handler {
 		auth:       o.Auth,
 		mailer:     o.Mailer,
 		scheme:     o.Scheme,
+		rollen:     rollen,
+		team:       o.Team,
 		proAdresse: auth.NewLimiter(5, 15*time.Minute),
 		proIP:      auth.NewLimiter(20, 15*time.Minute),
 	}
