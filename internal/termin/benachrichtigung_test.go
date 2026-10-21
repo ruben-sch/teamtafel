@@ -35,6 +35,26 @@ func betreffe(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
 	return out
 }
 
+// texte liefert die Texte aller Benachrichtigungen an das Konto, deren Betreff teil enthält.
+func texte(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
+	t.Helper()
+	rows, _ := k.pool.Query(k.ctx, `SELECT payload FROM job WHERE art = $1 AND payload->>'konto_id' = $2 ORDER BY created_at`,
+		nachricht.Art, konto.ID)
+	ps, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, p := range ps {
+		var in nachricht.Inhalt
+		_ = json.Unmarshal(p, &in)
+		if strings.Contains(in.Betreff, teil) {
+			out = append(out, in.Text)
+		}
+	}
+	return out
+}
+
 func anzahl(t *testing.T, k *kader, konto auth.Konto, teil string) int {
 	t.Helper()
 	return len(betreffe(t, k, konto, teil))
@@ -155,6 +175,27 @@ func TestAbsageNachFristAnTrainer(t *testing.T) {
 	}
 }
 
+func TestErinnerungNurAnAntwortberechtigte(t *testing.T) {
+	k := mitKader(t)
+	kim := k.eigenesKonto(t, "Kim", 2017)
+	frist := beiBerlin(2026, 10, 16, 18, 0)
+	if _, err := k.store.Anlegen(k.ctx, k.verein.ID, k.mannschaft.ID, k.trainer.ID, termin.Daten{
+		Typ: termin.TypTraining, Beginn: beiBerlin(2026, 10, 17, 10, 0), Ende: beiBerlin(2026, 10, 17, 11, 0), Frist: &frist}); err != nil {
+		t.Fatal(err)
+	}
+	k.jetzt = frist.Add(-23 * time.Hour)
+	if err := k.store.Erinnern(k.ctx, k.verein.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Die Eltern antworten nur noch für Alex (ohne eigenes Konto, volljährig), Kim selbst für sich.
+	if tx := texte(t, k, k.eltern, "Erinnerung"); len(tx) != 1 || !strings.HasPrefix(tx[0], "Für Alex fehlt") {
+		t.Errorf("eltern: %q", tx)
+	}
+	if tx := texte(t, k, kim, "Erinnerung"); len(tx) != 1 || !strings.HasPrefix(tx[0], "Für Kim fehlt") {
+		t.Errorf("kim: %q", tx)
+	}
+}
+
 func TestErinnerungVorFristEinmalAnOffene(t *testing.T) {
 	k := mitKader(t)
 	frist := beiBerlin(2026, 10, 16, 18, 0)
@@ -179,7 +220,7 @@ func TestErinnerungVorFristEinmalAnOffene(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Kim ist offen; Alex ist volljährig, dafür darf niemand antworten; Sam hat zugesagt.
+	// Kim und Alex sind offen (eine Erinnerung an die Eltern für beide); Sam hat zugesagt.
 	if b := betreffe(t, k, k.eltern, "Erinnerung"); len(b) != 1 {
 		t.Errorf("eltern: %q", b)
 	}
