@@ -165,6 +165,31 @@ func TestMitEigenemKontoAntwortetNurDerSpieler(t *testing.T) {
 	}
 }
 
+func TestElternAntwortenImJahrDerVolljaehrigkeit(t *testing.T) {
+	k := mitKader(t)
+	tm := k.einzel(t)
+	mia := k.aufnehmen(t, k.eltern, team.ArtKind, "Mia", k.jetzt.Year()-18)
+	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, mia, k.eltern.ID, termin.Zu, "", false); err != nil {
+		t.Errorf("mia wird dieses jahr 18: %v", err)
+	}
+}
+
+func TestKeinAntwortrechtAusAnderemVerein(t *testing.T) {
+	a, b := mitKader(t), mitKader(t)
+	tm := a.einzel(t)
+	// Eltern aus Verein B dürfen im Verein A für niemanden antworten ...
+	if err := a.store.Rueckmelden(a.ctx, a.verein.ID, tm.ID, a.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNichtBerechtigt) {
+		t.Errorf("eltern aus B für kind aus A: %v", err)
+	}
+	if m, err := a.store.MeineSpieler(a.ctx, a.verein.ID, b.eltern.ID, []string{tm.ID}); err != nil || len(m[tm.ID]) != 0 {
+		t.Errorf("eigene spieler aus B im termin von A: %+v %v", m, err)
+	}
+	// ... und im eigenen Verein ist der Termin aus A unsichtbar.
+	if err := b.store.Rueckmelden(b.ctx, b.verein.ID, tm.ID, b.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNotFound) {
+		t.Errorf("termin aus A im verein B: %v", err)
+	}
+}
+
 func TestFristUndAbsage(t *testing.T) {
 	k := mitKader(t)
 	frist := k.jetzt.Add(-time.Hour)
