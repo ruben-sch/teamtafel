@@ -41,3 +41,17 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - Conventional Commits (`feat:`, `fix:`, `chore:` …), Branches `feat/…`, `fix/…`.
 - PRs werden squash-gemergt; der PR-Titel steuert release-please.
 - Push auf `main` deployt Staging, ein Release deployt Produktion.
+
+## Agent skills
+
+### Issue tracker
+
+Issues liegen in GitHub Issues (`ruben-sch/teamtafel`), Zugriff über die `gh`-CLI. Siehe `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Standard-Labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Siehe `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Eine einzige Domäne: `GLOSSARY.md` und `docs/adr/` im Root. Siehe `docs/agents/domain.md`.
