@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	texttemplate "text/template"
@@ -232,6 +233,8 @@ func index(o Options, rl *rollen) http.HandlerFunc {
 					interner(w, "eigene spieler laden", err)
 					return
 				}
+				// Unter „Meine Spieler“ nur, für wen das Konto antwortet; Kinder mit eigenem Konto nicht.
+				data.Spieler = slices.DeleteFunc(data.Spieler, func(sp team.Spieler) bool { return !sp.Antwortberechtigt })
 				if o.Termine != nil {
 					ab := heute()
 					ts, err := o.Termine.FuerKonto(r.Context(), v.ID, data.Konto.ID, ab, ab.AddDate(0, 0, 28))

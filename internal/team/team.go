@@ -43,6 +43,8 @@ type Spieler struct {
 	Jahrgang int
 	// Selbst: Das abfragende Konto ist der Spieler selbst, nicht Vertretung.
 	Selbst bool
+	// Antwortberechtigt: Das abfragende Konto darf für den Spieler zu- und absagen.
+	Antwortberechtigt bool
 }
 
 // AnfrageDaten sind die Eingaben im Beitrittsformular.
@@ -345,16 +347,17 @@ func (s *Store) Ablehnen(ctx context.Context, vereinID, anfrageID string) error 
 // Kader listet die Spieler einer Mannschaft.
 func (s *Store) Kader(ctx context.Context, vereinID, mannschaftID string) ([]Spieler, error) {
 	return s.spieler(ctx, vereinID, `
-SELECT sp.id::text, sp.vorname, sp.nachname, sp.jahrgang, false
+SELECT sp.id::text, sp.vorname, sp.nachname, sp.jahrgang, false, false
 FROM kader k JOIN spieler sp ON sp.id = k.spieler_id
 WHERE k.mannschaft_id = $1 ORDER BY sp.nachname, sp.vorname`, mannschaftID)
 }
 
-// MeineSpieler listet die Spieler, für die das Konto zu- und absagen darf:
-// der eigene Spieler und vertretene Kinder.
+// MeineSpieler listet den eigenen Spieler und vertretene Kinder, auch solche, die inzwischen
+// ein eigenes Konto haben; ob das Konto für sie zu- und absagen darf, steht in Antwortberechtigt.
 func (s *Store) MeineSpieler(ctx context.Context, vereinID, kontoID string) ([]Spieler, error) {
 	return s.spieler(ctx, vereinID, `
-SELECT sp.id::text, sp.vorname, sp.nachname, sp.jahrgang, sp.konto_id IS NOT DISTINCT FROM $1::uuid
+SELECT sp.id::text, sp.vorname, sp.nachname, sp.jahrgang, sp.konto_id IS NOT DISTINCT FROM $1::uuid,
+	antwortberechtigt(sp.id, $1)
 FROM spieler sp
 WHERE sp.konto_id = $1 OR EXISTS (SELECT 1 FROM vertretung v WHERE v.spieler_id = sp.id AND v.konto_id = $1)
 ORDER BY sp.vorname`, kontoID)
@@ -369,7 +372,7 @@ func (s *Store) spieler(ctx context.Context, vereinID, query string, arg string)
 		}
 		out, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (Spieler, error) {
 			var sp Spieler
-			return sp, r.Scan(&sp.ID, &sp.Vorname, &sp.Nachname, &sp.Jahrgang, &sp.Selbst)
+			return sp, r.Scan(&sp.ID, &sp.Vorname, &sp.Nachname, &sp.Jahrgang, &sp.Selbst, &sp.Antwortberechtigt)
 		})
 		return err
 	})
