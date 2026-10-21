@@ -14,7 +14,7 @@ Stack: Go 1.26 (net/http, html/template), PostgreSQL 17 (pgx/v5), Migrationen mi
 - `internal/verein/` – Mandanten (Verein), Saisons, Mannschaften.
 - `internal/auth/` – Magic-Link-Login, Sessions, Rate-Limit.
 - `internal/team/` – Trainer, Spieler, Vertretungen (Eltern), Kader, Team-Links und Beitrittsanfragen.
-- `internal/termin/` – Termine, wöchentliche Serien, Rückmeldungen (Zu/Ab) und Dienste am Termin (Plätze, eintragen oder vom Trainer einteilen); die Wartung in `main.go` erzeugt stündlich Serientermine 8 Wochen im Voraus und erinnert alle 5 Minuten vor Fristen, 2 Tage vorher an freie Dienstplätze und um 18 Uhr am Vortag an eigene Dienste. Zeiten in Europe/Berlin, gespeichert in UTC.
+- `internal/termin/` – Termine, Serien (wöchentlich, alle 14 Tage oder monatlich am n-ten Wochentag), Rückmeldungen (Zu/Ab) und Dienste am Termin (Plätze, eintragen oder vom Trainer einteilen); die Wartung in `main.go` erzeugt stündlich Serientermine 8 Wochen im Voraus und erinnert alle 5 Minuten vor Fristen, 2 Tage vorher an freie Dienstplätze und um 18 Uhr am Vortag an eigene Dienste. Zeiten in Europe/Berlin, gespeichert in UTC.
 - `internal/job/` – Outbox und Job-Queue (`job`-Tabelle, global ohne RLS): `Einreihen` in der fachlichen Transaktion, Worker mit `FOR UPDATE SKIP LOCKED` und Backoff.
 - `internal/nachricht/` – Benachrichtigungen: Empfänger (`Team`, `Trainer`, `Spieler`), `An` reiht je Konto einen Job ein, `Zustellung` verschickt per Web Push, sonst Mail.
 - `internal/push/` – Web-Push-Abos (`push_abo`, global je Konto) und Versand per VAPID (webpush-go); 404/410 heißt Abo löschen. Texte entstehen in den Fachpaketen; nur Vornamen, keine Absagegründe.

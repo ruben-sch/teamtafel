@@ -172,6 +172,80 @@ func TestSerieErzeugtAchtWochenImVoraus(t *testing.T) {
 	}
 }
 
+func (f *fixture) serieTermine(t *testing.T, d termin.SerieDaten) []termin.Termin {
+	t.Helper()
+	if _, err := f.store.SerieAnlegen(f.ctx, f.verein.ID, f.mannschaft.ID, d); err != nil {
+		t.Fatal(err)
+	}
+	ts, err := f.store.Kommende(f.ctx, f.verein.ID, f.mannschaft.ID, beiBerlin(2026, 10, 1, 0, 0), f.jetzt.AddDate(1, 0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ts
+}
+
+func tage(ts []termin.Termin) []string {
+	var out []string
+	for _, t := range ts {
+		out = append(out, t.Beginn.Format("02.01."))
+	}
+	return out
+}
+
+func TestSerieAlle14Tage(t *testing.T) {
+	f := setup(t)
+	d := dienstagsTraining()
+	d.Rhythmus = termin.RhythmusZweiwoechentlich
+	// Gültig ab Do 1.10.: der Rhythmus zählt ab Di 6.10., der schon vorbei ist.
+	if got := fmt.Sprint(tage(f.serieTermine(t, d))); got != "[20.10. 03.11. 17.11. 01.12.]" {
+		t.Fatalf("termine = %s", got)
+	}
+	// Zwei Wochen später kommt der nächste Termin im Takt dazu.
+	f.jetzt = f.jetzt.AddDate(0, 0, 14)
+	if err := f.store.Fortschreiben(f.ctx, f.verein.ID); err != nil {
+		t.Fatal(err)
+	}
+	ts, _ := f.store.Kommende(f.ctx, f.verein.ID, f.mannschaft.ID, beiBerlin(2026, 10, 1, 0, 0), f.jetzt.AddDate(1, 0, 0))
+	if got := fmt.Sprint(tage(ts)); got != "[20.10. 03.11. 17.11. 01.12. 15.12.]" {
+		t.Fatalf("nach fortschreiben = %s", got)
+	}
+}
+
+func TestSerieMonatlich(t *testing.T) {
+	for _, tc := range []struct {
+		woche int
+		want  string
+	}{
+		{1, "[03.11. 01.12.]"},
+		{2, "[13.10. 10.11.]"},
+		{termin.LetzteWoche, "[27.10. 24.11.]"},
+	} {
+		f := setup(t)
+		d := dienstagsTraining()
+		d.Rhythmus, d.Monatswoche = termin.RhythmusMonatlich, tc.woche
+		if got := fmt.Sprint(tage(f.serieTermine(t, d))); got != tc.want {
+			t.Errorf("woche %d: termine = %s, erwartet %s", tc.woche, got, tc.want)
+		}
+		serien, err := f.store.Serien(f.ctx, f.verein.ID, f.mannschaft.ID)
+		if err != nil || len(serien) != 1 || serien[0].Rhythmus != termin.RhythmusMonatlich || serien[0].Monatswoche != tc.woche {
+			t.Errorf("woche %d: serien = %+v %v", tc.woche, serien, err)
+		}
+	}
+}
+
+func TestSerieBeschreibung(t *testing.T) {
+	for want, d := range map[string]termin.SerieDaten{
+		"Dienstag":                 {Wochentag: time.Tuesday},
+		"Dienstag, alle 14 Tage":   {Wochentag: time.Tuesday, Rhythmus: termin.RhythmusZweiwoechentlich},
+		"1. Samstag im Monat":      {Wochentag: time.Saturday, Rhythmus: termin.RhythmusMonatlich, Monatswoche: 1},
+		"Letzter Sonntag im Monat": {Wochentag: time.Sunday, Rhythmus: termin.RhythmusMonatlich, Monatswoche: termin.LetzteWoche},
+	} {
+		if got := d.Beschreibung(); got != want {
+			t.Errorf("Beschreibung() = %q, erwartet %q", got, want)
+		}
+	}
+}
+
 func TestSerieBeendenBehaeltBearbeiteteTermine(t *testing.T) {
 	f := setup(t)
 	s, err := f.store.SerieAnlegen(f.ctx, f.verein.ID, f.mannschaft.ID, dienstagsTraining())
@@ -207,9 +281,14 @@ func TestSerieBeendenBehaeltBearbeiteteTermine(t *testing.T) {
 func TestSerieValidierung(t *testing.T) {
 	f := setup(t)
 	for name, mod := range map[string]func(*termin.SerieDaten){
-		"uhrzeit":    func(d *termin.SerieDaten) { d.Uhrzeit = "25:00" },
-		"dauer":      func(d *termin.SerieDaten) { d.Dauer = 0 },
-		"bis vorher": func(d *termin.SerieDaten) { b := d.GueltigVon.AddDate(0, 0, -1); d.GueltigBis = &b },
+		"uhrzeit":           func(d *termin.SerieDaten) { d.Uhrzeit = "25:00" },
+		"dauer":             func(d *termin.SerieDaten) { d.Dauer = 0 },
+		"bis vorher":        func(d *termin.SerieDaten) { b := d.GueltigVon.AddDate(0, 0, -1); d.GueltigBis = &b },
+		"rhythmus":          func(d *termin.SerieDaten) { d.Rhythmus = "jaehrlich" },
+		"monatswoche fehlt": func(d *termin.SerieDaten) { d.Rhythmus = termin.RhythmusMonatlich },
+		"monatswoche zu groß": func(d *termin.SerieDaten) {
+			d.Rhythmus, d.Monatswoche = termin.RhythmusMonatlich, termin.LetzteWoche+1
+		},
 	} {
 		d := dienstagsTraining()
 		mod(&d)

@@ -97,7 +97,6 @@ var funcs = template.FuncMap{
 		return termin.Wochentage[t.Weekday()][:2] + ", " + t.Format("02.01.2006")
 	},
 	"uhrzeit":   func(t time.Time) string { return t.In(termin.Zeitzone).Format("15:04") },
-	"wochentag": func(w time.Weekday) string { return termin.Wochentage[w] },
 	"typName":   termin.TypName,
 	"minuten":   func(d time.Duration) int { return int(d.Minutes()) },
 	"statusText": func(s string) string {
@@ -245,12 +244,18 @@ func (f terminForm) daten() (termin.Daten, error) {
 }
 
 type serieForm struct {
-	Wochentag, Uhrzeit, Dauer, Treff, Frist, Ort, GueltigVon, GueltigBis string
+	Wochentag, Rhythmus, Monatswoche, Uhrzeit, Dauer, Treff, Frist, Ort, GueltigVon, GueltigBis string
+}
+
+// neueSerieForm: Vorgaben für das leere Formular.
+func neueSerieForm() serieForm {
+	return serieForm{Wochentag: "1", Rhythmus: termin.RhythmusWoechentlich, Monatswoche: "1", Dauer: "90",
+		GueltigVon: heute().Format("2006-01-02")}
 }
 
 func serieFormLesen(r *http.Request) serieForm {
 	v := func(k string) string { return strings.TrimSpace(r.PostFormValue(k)) }
-	return serieForm{Wochentag: v("wochentag"), Uhrzeit: v("uhrzeit"), Dauer: v("dauer"), Treff: v("treff"),
+	return serieForm{Wochentag: v("wochentag"), Rhythmus: v("rhythmus"), Monatswoche: v("monatswoche"), Uhrzeit: v("uhrzeit"), Dauer: v("dauer"), Treff: v("treff"),
 		Frist: v("frist"), Ort: v("ort"), GueltigVon: v("gueltig_von"), GueltigBis: v("gueltig_bis")}
 }
 
@@ -273,8 +278,14 @@ func (f serieForm) daten() (termin.SerieDaten, error) {
 	if err := errors.Join(err1, err2, err3, err4, err5); err != nil || wt < 1 || wt > 7 {
 		return termin.SerieDaten{}, fmt.Errorf("%w: %v", termin.ErrUngueltig, err)
 	}
-	d := termin.SerieDaten{Wochentag: time.Weekday(wt % 7), Uhrzeit: f.Uhrzeit, Dauer: time.Duration(dauer) * time.Minute,
+	d := termin.SerieDaten{Wochentag: time.Weekday(wt % 7), Rhythmus: f.Rhythmus, Uhrzeit: f.Uhrzeit, Dauer: time.Duration(dauer) * time.Minute,
 		TreffVorher: time.Duration(treff) * time.Minute, FristVorher: time.Duration(frist) * time.Hour, Ort: f.Ort, GueltigVon: von}
+	if f.Rhythmus == termin.RhythmusMonatlich {
+		var err error
+		if d.Monatswoche, err = strconv.Atoi(f.Monatswoche); err != nil {
+			return d, fmt.Errorf("%w: monatswoche", termin.ErrUngueltig)
+		}
+	}
 	if f.GueltigBis != "" {
 		bis, err := time.Parse("2006-01-02", f.GueltigBis)
 		if err != nil {
@@ -310,7 +321,7 @@ func (s *teamSeiten) terminNeu(w http.ResponseWriter, r *http.Request) {
 	}
 	s.neuSeite(w, r, v, http.StatusOK, terminNeuSeite{
 		Termin: terminForm{Typ: termin.TypTraining},
-		Serie:  serieForm{Wochentag: "1", Dauer: "90", GueltigVon: heute().Format("2006-01-02")},
+		Serie:  neueSerieForm(),
 	})
 }
 
@@ -327,8 +338,7 @@ func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
 		t, err = s.termine.Anlegen(r.Context(), v.ID, id, k.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
-		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: f, Serie: serieForm{Wochentag: "1", Dauer: "90",
-			GueltigVon: heute().Format("2006-01-02")}, Fehler: terminFehler})
+		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: f, Serie: neueSerieForm(), Fehler: terminFehler})
 		return
 	}
 	if err != nil {
@@ -353,7 +363,7 @@ func (s *teamSeiten) serieAnlegen(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
 		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: terminForm{Typ: termin.TypTraining}, Serie: f,
-			Fehler: "Bitte Wochentag, Uhrzeit (HH:MM), Dauer und Startdatum der Serie prüfen."})
+			Fehler: "Bitte Wochentag, Rhythmus, Uhrzeit (HH:MM), Dauer und Startdatum der Serie prüfen."})
 		return
 	}
 	if err != nil {
