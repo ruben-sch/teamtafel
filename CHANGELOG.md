@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.3](https://github.com/ruben-sch/teamtafel/compare/v0.1.2...v0.1.3) (2026-10-21)
+
+
+### Features
+
+* Terminserien alle 14 Tage oder monatlich am n-ten Wochentag ([#32](https://github.com/ruben-sch/teamtafel/issues/32)) ([f345614](https://github.com/ruben-sch/teamtafel/commit/f345614b84c5f259807456d859966d2911cbff3c))
+
+
+### Bug Fixes
+
+* Build- und CI-Images von mirror.gcr.io statt der ECR-Spiegelung ziehen ([#31](https://github.com/ruben-sch/teamtafel/issues/31)) ([d2062ca](https://github.com/ruben-sch/teamtafel/commit/d2062ca997fd78e00e506af42f4e10e0f0150ae0))
+* Login-Links nur an bekannte Konten oder über gültigen Team-Link ([#28](https://github.com/ruben-sch/teamtafel/issues/28)) ([3fca8ac](https://github.com/ruben-sch/teamtafel/commit/3fca8ac0b51f33a0b01c184ef2ddda441913c2ce))
+
 ## [0.1.2](https://github.com/ruben-sch/teamtafel/compare/v0.1.1...v0.1.2) (2026-10-13)
 
 
