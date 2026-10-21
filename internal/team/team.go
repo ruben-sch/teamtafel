@@ -44,6 +44,7 @@ type Spieler struct {
 	// Selbst: Das abfragende Konto ist der Spieler selbst, nicht Vertretung.
 	Selbst bool
 	// Antwortberechtigt: Das abfragende Konto darf für den Spieler zu- und absagen.
+	// Nur MeineSpieler setzt es; Kader fragt für kein Konto und lässt es false.
 	Antwortberechtigt bool
 }
 
