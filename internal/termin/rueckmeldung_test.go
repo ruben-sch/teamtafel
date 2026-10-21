@@ -31,28 +31,32 @@ func mitKader(t *testing.T) *kader {
 	if err := ts.TrainerHinzufuegen(f.ctx, f.verein.ID, f.mannschaft.ID, k.trainer.ID); err != nil {
 		t.Fatal(err)
 	}
-	aufnehmen := func(konto auth.Konto, art, vorname string, jahrgang int) string {
-		a, err := ts.AnfrageStellen(f.ctx, f.verein.ID, f.mannschaft.ID, konto.ID,
-			team.AnfrageDaten{Art: art, Vorname: vorname, Nachname: "Test", Jahrgang: jahrgang})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := ts.Freigeben(f.ctx, f.verein.ID, a.ID, k.trainer.ID, false); err != nil {
-			t.Fatal(err)
-		}
-		sp, _ := ts.Kader(f.ctx, f.verein.ID, f.mannschaft.ID)
-		for _, s := range sp {
-			if s.Vorname == vorname {
-				return s.ID
-			}
-		}
-		t.Fatalf("%s nicht im kader", vorname)
-		return ""
-	}
-	k.kind = aufnehmen(k.eltern, team.ArtKind, "Kim", 2017)
-	k.erwachsen = aufnehmen(k.eltern, team.ArtKind, "Alex", 2000)
-	k.eigener = aufnehmen(k.selbst, team.ArtSelbst, "Sam", 1990)
+	k.kind = k.aufnehmen(t, k.eltern, team.ArtKind, "Kim", 2017)
+	k.erwachsen = k.aufnehmen(t, k.eltern, team.ArtKind, "Alex", 2000)
+	k.eigener = k.aufnehmen(t, k.selbst, team.ArtSelbst, "Sam", 1990)
 	return k
+}
+
+// aufnehmen nimmt einen neuen Spieler über eine freigegebene Beitrittsanfrage in den Kader auf.
+func (k *kader) aufnehmen(t *testing.T, konto auth.Konto, art, vorname string, jahrgang int) string {
+	t.Helper()
+	ts := team.NewStore(k.pool)
+	a, err := ts.AnfrageStellen(k.ctx, k.verein.ID, k.mannschaft.ID, konto.ID,
+		team.AnfrageDaten{Art: art, Vorname: vorname, Nachname: "Test", Jahrgang: jahrgang})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ts.Freigeben(k.ctx, k.verein.ID, a.ID, k.trainer.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	sp, _ := ts.Kader(k.ctx, k.verein.ID, k.mannschaft.ID)
+	for _, s := range sp {
+		if s.Vorname == vorname {
+			return s.ID
+		}
+	}
+	t.Fatalf("%s nicht im kader", vorname)
+	return ""
 }
 
 // eigenesKonto verknüpft den Spieler mit einem neuen eigenen Konto, wie bei einer
