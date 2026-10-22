@@ -246,8 +246,9 @@ func (z *zugriff) ohneObjekt(w http.ResponseWriter, r *http.Request, g Regel) (Z
 }
 
 // adminVorVerein prüft die Adminrolle, bevor eine Admin-Route wegen des falschen Orts
-// mit 404 antwortet: Wer kein Admin ist, bekommt 403. Ohne Verein ist nur der
-// Super-Admin Admin, deshalb landet auf der Hauptdomain nur er beim 404.
+// oder einer unbekannten ID mit 404 antwortet: Wer kein Admin ist, bekommt 403 und
+// erfährt so weder, ob es den Verein gibt, noch, ob eine Mannschafts-ID existiert.
+// Ohne Verein ist nur der Super-Admin Admin, deshalb landet auf der Hauptdomain nur er beim 404.
 func (z *zugriff) adminVorVerein(w http.ResponseWriter, r *http.Request, g Regel, k auth.Konto) bool {
 	admin, err := z.rollen.darfVerwalten(r.Context(), k)
 	if err != nil {

@@ -30,6 +30,8 @@ type zugriffWelt struct {
 	// Sitzungen; anonym ist nil.
 	trainer, mitglied, fremd, adminA, adminB, chef *http.Cookie
 	superadmin                                     string
+	// antragsteller stellt die offenen Beitrittsanfragen.
+	antragsteller string
 }
 
 func neueZugriffWelt(t *testing.T) *zugriffWelt {
@@ -78,7 +80,7 @@ func neueZugriffWelt(t *testing.T) *zugriffWelt {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.anfrage = offen.ID
+	w.anfrage, w.antragsteller = offen.ID, adminB
 	b := time.Now().In(termin.Zeitzone).AddDate(0, 0, 3).Truncate(time.Hour)
 	tm, err := w.termine.Anlegen(ctx, w.a.ID, m.ID, "", termin.Daten{Typ: termin.TypTraining, Beginn: b, Ende: b.Add(time.Hour)})
 	if err != nil {
@@ -156,6 +158,8 @@ func (w *zugriffWelt) stubRouter(got *aufgerufen) http.Handler {
 	rt.ohneObjekt("GET /vereinsadmin", Vereinsadmin, merke(got, keins))
 	rt.ohneObjekt("POST /vereinsadmin", Vereinsadmin, merke(got, keins))
 	rt.ohneObjekt("GET /superadmin", Superadmin, merke(got, keins))
+	rt.ohneObjekt("POST /admin", Admin, merke(got, keins))
+	rt.ohneObjekt("POST /superadmin", Superadmin, merke(got, keins))
 	rt.oeffentlich("GET /offen", "Test", func(rw http.ResponseWriter, r *http.Request) { *got = aufgerufen{ok: true} })
 	return mandant("https", "teamtafel.example", w.vereine, sitzung(w.auth, rt))
 }
@@ -212,6 +216,10 @@ func TestZugriffsmodul(t *testing.T) {
 			status: http.StatusSeeOther, ort: login("/admin")},
 		{name: "post anonym auf admin-route mit herkunft", method: http.MethodPost, pfad: a + "/vereinsadmin",
 			referer: "https://teamtafel.example" + a + "/admin", status: http.StatusSeeOther, ort: login("/admin")},
+		{name: "post anonym auf adminseite ohne herkunft zur verwaltung", method: http.MethodPost, pfad: a + "/admin",
+			status: http.StatusSeeOther, ort: login("/admin")},
+		{name: "post anonym auf superadmin ohne herkunft zur verwaltung", method: http.MethodPost, pfad: "/superadmin",
+			status: http.StatusSeeOther, ort: "/login?weiter=" + url.QueryEscape("/admin")},
 		{name: "post anonym fremde herkunft", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,
 			referer: "https://boese.example" + a + "/t/" + w.termin, status: http.StatusSeeOther, ort: login("/")},
 		{name: "post anonym ohne herkunft", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,

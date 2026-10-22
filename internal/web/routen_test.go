@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruben-sch/teamtafel/internal/dbtest"
 	"github.com/ruben-sch/teamtafel/internal/kalender"
+	"github.com/ruben-sch/teamtafel/internal/team"
 )
 
 // oeffentlicheRouten sind alle Routen ohne Login. Eine neue öffentliche Route muss
@@ -90,6 +91,17 @@ func (w *zugriffWelt) berechtigt(s stufe) *http.Cookie {
 		return w.chef
 	}
 	return w.fremd
+}
+
+// neueAnfrage stellt eine offene Beitrittsanfrage, weil Freigeben und Ablehnen sie verbrauchen.
+func (w *zugriffWelt) neueAnfrage(vorname string) {
+	w.t.Helper()
+	an, err := w.team.AnfrageStellen(w.t.Context(), w.a.ID, w.mannschaft, w.antragsteller, team.AnfrageDaten{
+		Art: team.ArtKind, Vorname: vorname, Nachname: "Ball", Jahrgang: 2020})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	w.anfrage = an.ID
 }
 
 var platzhalter = regexp.MustCompile(`\{[a-z]+\}`)
@@ -188,15 +200,21 @@ func TestJedeRouteHatEineRegel(t *testing.T) {
 			continue
 		}
 		t.Run("berechtigt "+ro.muster, func(t *testing.T) {
+			if ro.art == "anfrage" {
+				w.neueAnfrage(ro.muster)
+			}
 			method, p := w.pfad(ro)
 			a := "/" + w.a.Slug + p
 			if ro.regel.stufe == stufeSuperadmin {
 				a = p
 			}
 			// Wer die Regel erfüllt, kommt am Zugriffsmodul vorbei; was der Handler dann
-			// antwortet (400, 404 für unbekannte Dienste …), ist hier egal.
-			if rec := do(method, a, w.berechtigt(ro.regel.stufe)); rec.Code == http.StatusForbidden ||
-				strings.Contains(rec.Header().Get("Location"), "/login?") {
+			// antwortet (400, 404 für unbekannte Dienste …), ist hier egal. Ohne weitere
+			// Platzhalter sind alle IDs echt, dann darf auch kein 404 kommen.
+			rec := do(method, a, w.berechtigt(ro.regel.stufe))
+			echt := !platzhalter.MatchString(strings.ReplaceAll(ro.muster, "{id}", ""))
+			if rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized ||
+				(echt && rec.Code == http.StatusNotFound) || strings.Contains(rec.Header().Get("Location"), "/login?") {
 				t.Errorf("berechtigtes Konto abgewiesen: %d %q", rec.Code, rec.Header().Get("Location"))
 			}
 		})
