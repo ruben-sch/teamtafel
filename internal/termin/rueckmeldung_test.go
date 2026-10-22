@@ -177,14 +177,15 @@ func TestElternAntwortenImJahrDerVolljaehrigkeit(t *testing.T) {
 func TestKeinAntwortrechtAusAnderemVerein(t *testing.T) {
 	a, b := mitKader(t), mitKader(t)
 	tm := a.einzel(t)
-	// Eltern aus Verein B dürfen im Verein A für niemanden antworten ...
+	// Eltern aus Verein B haben im Verein A keine Vertretung und damit kein Antwortrecht.
+	// Dass RLS Zeilen aus B in A verbirgt, prüft TestJedeVereinstabelleHatRLS; hier zählt das Ergebnis.
 	if err := a.store.Rueckmelden(a.ctx, a.verein.ID, tm.ID, a.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNichtBerechtigt) {
 		t.Errorf("eltern aus B für kind aus A: %v", err)
 	}
 	if m, err := a.store.MeineSpieler(a.ctx, a.verein.ID, b.eltern.ID, []string{tm.ID}); err != nil || len(m[tm.ID]) != 0 {
 		t.Errorf("eigene spieler aus B im termin von A: %+v %v", m, err)
 	}
-	// ... und im eigenen Verein ist der Termin aus A unsichtbar.
+	// Im eigenen Verein B ist der Termin aus A unsichtbar, auch für ein Kind, für das sie antworten dürfen.
 	if err := b.store.Rueckmelden(b.ctx, b.verein.ID, tm.ID, b.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNotFound) {
 		t.Errorf("termin aus A im verein B: %v", err)
 	}

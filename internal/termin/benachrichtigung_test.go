@@ -15,22 +15,37 @@ import (
 	"github.com/ruben-sch/teamtafel/internal/termin"
 )
 
-// betreffe liefert die Betreffzeilen aller Benachrichtigungen an das Konto, die prefix enthalten.
-func betreffe(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
+// inhalte liefert alle Benachrichtigungen an das Konto, deren Betreff teil enthält.
+func inhalte(t *testing.T, k *kader, konto auth.Konto, teil string) []nachricht.Inhalt {
 	t.Helper()
-	rows, _ := k.pool.Query(k.ctx, `SELECT payload FROM job WHERE art = $1 AND payload->>'konto_id' = $2 ORDER BY created_at`,
+	rows, err := k.pool.Query(k.ctx, `SELECT payload FROM job WHERE art = $1 AND payload->>'konto_id' = $2 ORDER BY created_at`,
 		nachricht.Art, konto.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ps, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out []string
+	var out []nachricht.Inhalt
 	for _, p := range ps {
 		var in nachricht.Inhalt
-		_ = json.Unmarshal(p, &in)
-		if strings.Contains(in.Betreff, teil) {
-			out = append(out, in.Betreff)
+		if err := json.Unmarshal(p, &in); err != nil {
+			t.Fatal(err)
 		}
+		if strings.Contains(in.Betreff, teil) {
+			out = append(out, in)
+		}
+	}
+	return out
+}
+
+// betreffe liefert die Betreffzeilen aller Benachrichtigungen an das Konto, die teil enthalten.
+func betreffe(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
+	t.Helper()
+	var out []string
+	for _, in := range inhalte(t, k, konto, teil) {
+		out = append(out, in.Betreff)
 	}
 	return out
 }
@@ -38,19 +53,9 @@ func betreffe(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
 // texte liefert die Texte aller Benachrichtigungen an das Konto, deren Betreff teil enthält.
 func texte(t *testing.T, k *kader, konto auth.Konto, teil string) []string {
 	t.Helper()
-	rows, _ := k.pool.Query(k.ctx, `SELECT payload FROM job WHERE art = $1 AND payload->>'konto_id' = $2 ORDER BY created_at`,
-		nachricht.Art, konto.ID)
-	ps, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
-	if err != nil {
-		t.Fatal(err)
-	}
 	var out []string
-	for _, p := range ps {
-		var in nachricht.Inhalt
-		_ = json.Unmarshal(p, &in)
-		if strings.Contains(in.Betreff, teil) {
-			out = append(out, in.Text)
-		}
+	for _, in := range inhalte(t, k, konto, teil) {
+		out = append(out, in.Text)
 	}
 	return out
 }
