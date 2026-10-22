@@ -323,7 +323,7 @@ func (z *zugriff) rolle(ctx context.Context, vereinID string, k auth.Konto, mann
 		}
 	}
 	rl.verwalter = rl.trainer
-	if !rl.trainer && s != stufeTrainer {
+	if !rl.trainer {
 		if rl.verwalter, err = z.rollen.darfVerwalten(ctx, k); err != nil {
 			return rl, err
 		}
