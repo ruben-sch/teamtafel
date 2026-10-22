@@ -181,7 +181,6 @@ func routenVon(o Options) *router {
 
 		if o.Termine != nil {
 			tm := z.termin()
-			team := TeamMitglied.Text("Diesen Termin sieht nur das Team.")
 			aendern := Verwalter.Text("Termine ändern nur die Trainer.")
 			mitObjekt(rt, "GET /m/{id}/termine/neu", Verwalter, mannschaft, t.terminNeu)
 			mitObjekt(rt, "POST /m/{id}/termine", Verwalter, mannschaft, t.terminAnlegen)
@@ -189,16 +188,16 @@ func routenVon(o Options) *router {
 			mitObjekt(rt, "POST /serien/{id}/beenden", Verwalter, z.serie(), t.serieBeenden)
 			// Nur Trainer, nicht Vereinsadmins: Die Zahlen sind für die Arbeit mit der Mannschaft gedacht.
 			mitObjekt(rt, "GET /m/{id}/statistik", Trainer, mannschaft, t.statistik)
-			mitObjekt(rt, "GET /t/{id}", team, tm, t.terminDetail)
+			mitObjekt(rt, "GET /t/{id}", TeamMitglied, tm, t.terminDetail)
 			mitObjekt(rt, "POST /t/{id}", aendern, tm, t.terminAendern)
 			mitObjekt(rt, "POST /t/{id}/absagen", aendern, tm, t.terminAbsagen)
-			mitObjekt(rt, "POST /t/{id}/rueckmeldung/{spieler}", team, tm, t.rueckmelden)
+			mitObjekt(rt, "POST /t/{id}/rueckmeldung/{spieler}", TeamMitglied, tm, t.rueckmelden)
 			mitObjekt(rt, "POST /t/{id}/anwesenheit/{spieler}", Verwalter.Text("Die Anwesenheit tragen nur die Trainer ein."), tm, t.anwesenheitSetzen)
 			mitObjekt(rt, "POST /t/{id}/dienste", aendern, tm, t.dienstAnlegen)
 			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}", aendern, tm, t.dienstAendern)
 			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/loeschen", aendern, tm, t.dienstLoeschen)
-			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/eintragen", team, tm, t.dienstEintrag(true))
-			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/austragen", team, tm, t.dienstEintrag(false))
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/eintragen", TeamMitglied, tm, t.dienstEintrag(true))
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/austragen", TeamMitglied, tm, t.dienstEintrag(false))
 		}
 
 		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, scheme: o.Scheme}

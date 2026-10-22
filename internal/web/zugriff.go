@@ -94,6 +94,8 @@ type Objekt[O any] struct {
 	// seite ist die Seite des Objekts, die das Team sieht; nil, wenn es keine gibt.
 	seite     func(id string) string
 	seiteText string
+	// fremdText ersetzt den Text der Regel für Konten außerhalb des Teams.
+	fremdText string
 	// laden liefert das Objekt und seine Mannschaft oder errUnbekannt.
 	laden func(ctx context.Context, vereinID, id string) (O, string, error)
 }
@@ -120,6 +122,7 @@ func (z *zugriff) mannschaft() Objekt[verein.Mannschaft] {
 
 func (z *zugriff) termin() Objekt[termin.Termin] {
 	return Objekt[termin.Termin]{art: "termin", seite: func(id string) string { return "/t/" + id }, seiteText: "Zurück zum Termin",
+		fremdText: "Diesen Termin sieht nur das Team.",
 		laden: func(ctx context.Context, vereinID, id string) (termin.Termin, string, error) {
 			t, err := z.termine.Termin(ctx, vereinID, id)
 			if errors.Is(err, termin.ErrNotFound) {
@@ -218,7 +221,7 @@ func (z *zugriff) ohneObjekt(w http.ResponseWriter, r *http.Request, g Regel) (Z
 	ctx := r.Context()
 	var zg Zugang[Keins]
 	zg.Verein, zg.ImVerein = vereinAus(ctx)
-	if !zg.ImVerein && (g.stufe == stufeAngemeldet || g.stufe == stufeVereinsadmin) {
+	if !zg.ImVerein && g.stufe == stufeAngemeldet {
 		http.NotFound(w, r)
 		return zg, false
 	}
@@ -228,39 +231,55 @@ func (z *zugriff) ohneObjekt(w http.ResponseWriter, r *http.Request, g Regel) (Z
 		return zg, false
 	}
 	switch g.stufe {
-	case stufeSuperadmin:
-		if zg.ImVerein {
-			http.NotFound(w, r)
-			return zg, false
-		}
-		zg.Verwalter = z.rollen.istSuperadmin(zg.Konto)
-	case stufeAdmin, stufeVereinsadmin:
-		admin, err := z.rollen.darfVerwalten(ctx, zg.Konto)
-		if err != nil {
-			interner(w, "adminrolle prüfen", err)
-			return zg, false
-		}
-		zg.Verwalter = admin
+	case stufeAdmin, stufeVereinsadmin, stufeSuperadmin:
 	default:
 		return zg, true
 	}
-	if !zg.Verwalter {
+	if !z.adminVorVerein(w, r, g, zg.Konto) {
+		return zg, false
+	}
+	// Admin-Routen der Plattform gibt es nur auf der Hauptdomain, die des Vereins nur im Verein.
+	if (g.stufe == stufeSuperadmin && zg.ImVerein) || (g.stufe == stufeVereinsadmin && !zg.ImVerein) {
+		http.NotFound(w, r)
+		return zg, false
+	}
+	zg.Verwalter = true
+	return zg, true
+}
+
+// adminVorVerein prüft die Adminrolle, bevor eine Admin-Route wegen des falschen Orts
+// mit 404 antwortet: Wer kein Admin ist, bekommt 403. Ohne Verein ist nur der
+// Super-Admin Admin, deshalb landet auf der Hauptdomain nur er beim 404.
+func (z *zugriff) adminVorVerein(w http.ResponseWriter, r *http.Request, g Regel, k auth.Konto) bool {
+	admin, err := z.rollen.darfVerwalten(r.Context(), k)
+	if err != nil {
+		interner(w, "adminrolle prüfen", err)
+		return false
+	}
+	if !admin {
 		keinZugriff(w, r, g.text, "/", "Zur Startseite")
 	}
-	return zg, zg.Verwalter
+	return admin
 }
 
 // pruefeObjekt lädt das Objekt aus {id} im Verein und prüft die Rolle an seiner Mannschaft.
 func pruefeObjekt[O any](z *zugriff, w http.ResponseWriter, r *http.Request, g Regel, o Objekt[O]) (Zugang[O], bool) {
 	ctx := r.Context()
 	var zg Zugang[O]
-	if zg.Verein, zg.ImVerein = vereinAus(ctx); !zg.ImVerein {
+	// Vereinsadmin-Routen prüfen wie die übrigen Admin-Routen erst Login und Adminrolle.
+	if zg.Verein, zg.ImVerein = vereinAus(ctx); !zg.ImVerein && g.stufe != stufeVereinsadmin {
 		http.NotFound(w, r)
 		return zg, false
 	}
 	var ok bool
 	if zg.Konto, ok = kontoAus(ctx); !ok {
 		zumLogin(w, r, g)
+		return zg, false
+	}
+	if !zg.ImVerein {
+		if z.adminVorVerein(w, r, g, zg.Konto) {
+			http.NotFound(w, r)
+		}
 		return zg, false
 	}
 	id := r.PathValue("id")
@@ -289,6 +308,8 @@ func pruefeObjekt[O any](z *zugriff, w http.ResponseWriter, r *http.Request, g R
 	case erlaubt:
 	case rl.team && o.seite != nil:
 		keinZugriff(w, r, g.text, o.seite(id), o.seiteText)
+	case !rl.team && o.fremdText != "":
+		keinZugriff(w, r, o.fremdText, "/", "Zur Startseite")
 	default:
 		keinZugriff(w, r, g.text, "/", "Zur Startseite")
 	}
@@ -354,7 +375,7 @@ func zumLogin(w http.ResponseWriter, r *http.Request, g Regel) {
 // herkunft ist der Pfad des Referers im Verein der Anfrage, sonst "/".
 func herkunft(r *http.Request) string {
 	u, err := url.Parse(r.Referer())
-	if err != nil || u.Host != r.Host {
+	if err != nil || !strings.EqualFold(u.Host, r.Host) {
 		return "/"
 	}
 	pfad, ok := strings.CutPrefix(u.Path, basis(r))
