@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ruben-sch/teamtafel/internal/auth"
 	"github.com/ruben-sch/teamtafel/internal/termin"
 	"github.com/ruben-sch/teamtafel/internal/verein"
 )
@@ -159,37 +158,6 @@ func heute() time.Time {
 	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, termin.Zeitzone)
 }
 
-// verwalterVon lässt Trainer der Mannschaft und Admins durch und antwortet sonst selbst.
-func (s *teamSeiten) verwalterVon(w http.ResponseWriter, r *http.Request, mannschaftID string) (verein.Verein, auth.Konto, bool) {
-	v, k, ok := angemeldet(w, r)
-	if !ok {
-		return v, k, false
-	}
-	if !uuidPattern.MatchString(mannschaftID) {
-		http.NotFound(w, r)
-		return v, k, false
-	}
-	ok, err := s.istVerwalter(r.Context(), v, k, mannschaftID)
-	if err != nil {
-		interner(w, "berechtigung prüfen", err)
-		return v, k, false
-	}
-	if !ok {
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Diese Seite sehen nur die Trainer der Mannschaft.", LinkZiel: "/", LinkText: "Zur Startseite",
-		})
-	}
-	return v, k, ok
-}
-
-func (s *teamSeiten) istVerwalter(ctx context.Context, v verein.Verein, k auth.Konto, mannschaftID string) (bool, error) {
-	ok, err := s.team.IstTrainer(ctx, v.ID, mannschaftID, k.ID)
-	if err != nil || ok {
-		return ok, err
-	}
-	return s.rollen.darfVerwalten(ctx, k)
-}
-
 // terminForm sind die Formularwerte, als Text, damit Eingaben nach Fehlern stehen bleiben.
 type terminForm struct {
 	Typ, Titel, Datum, Beginn, Ende, Treffzeit, Frist, Ort, Treffpunkt string
@@ -304,41 +272,27 @@ type terminNeuSeite struct {
 	Fehler     string
 }
 
-func (s *teamSeiten) neuSeite(w http.ResponseWriter, r *http.Request, v verein.Verein, status int, seite terminNeuSeite) {
-	m, err := s.team.Mannschaft(r.Context(), v.ID, r.PathValue("id"))
-	if err != nil {
-		interner(w, "mannschaft laden", err)
-		return
-	}
+func neuSeite(w http.ResponseWriter, r *http.Request, m verein.Mannschaft, status int, seite terminNeuSeite) {
 	seite.Titel, seite.Mannschaft = "Termin anlegen", m
 	renderStatus(w, r, status, "termin_neu.html", seite)
 }
 
-func (s *teamSeiten) terminNeu(w http.ResponseWriter, r *http.Request) {
-	v, _, ok := s.verwalterVon(w, r, r.PathValue("id"))
-	if !ok {
-		return
-	}
-	s.neuSeite(w, r, v, http.StatusOK, terminNeuSeite{
+func (s *teamSeiten) terminNeu(w http.ResponseWriter, r *http.Request, z Zugang[verein.Mannschaft]) {
+	neuSeite(w, r, z.Objekt, http.StatusOK, terminNeuSeite{
 		Termin: terminForm{Typ: termin.TypTraining},
 		Serie:  neueSerieForm(),
 	})
 }
 
-func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	v, k, ok := s.verwalterVon(w, r, id)
-	if !ok {
-		return
-	}
+func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request, z Zugang[verein.Mannschaft]) {
 	f := terminFormLesen(r)
 	d, err := f.daten()
 	var t termin.Termin
 	if err == nil {
-		t, err = s.termine.Anlegen(r.Context(), v.ID, id, k.ID, d)
+		t, err = s.termine.Anlegen(r.Context(), z.Verein.ID, z.Objekt.ID, z.Konto.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
-		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: f, Serie: neueSerieForm(), Fehler: terminFehler})
+		neuSeite(w, r, z.Objekt, http.StatusBadRequest, terminNeuSeite{Termin: f, Serie: neueSerieForm(), Fehler: terminFehler})
 		return
 	}
 	if err != nil {
@@ -350,19 +304,14 @@ func (s *teamSeiten) terminAnlegen(w http.ResponseWriter, r *http.Request) {
 
 const terminFehler = "Bitte Datum und Uhrzeiten prüfen: Das Ende muss nach dem Beginn liegen, Treffzeit und Frist davor."
 
-func (s *teamSeiten) serieAnlegen(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	v, _, ok := s.verwalterVon(w, r, id)
-	if !ok {
-		return
-	}
+func (s *teamSeiten) serieAnlegen(w http.ResponseWriter, r *http.Request, z Zugang[verein.Mannschaft]) {
 	f := serieFormLesen(r)
 	d, err := f.daten()
 	if err == nil {
-		_, err = s.termine.SerieAnlegen(r.Context(), v.ID, id, d)
+		_, err = s.termine.SerieAnlegen(r.Context(), z.Verein.ID, z.Objekt.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
-		s.neuSeite(w, r, v, http.StatusBadRequest, terminNeuSeite{Termin: terminForm{Typ: termin.TypTraining}, Serie: f,
+		neuSeite(w, r, z.Objekt, http.StatusBadRequest, terminNeuSeite{Termin: terminForm{Typ: termin.TypTraining}, Serie: f,
 			Fehler: "Bitte Wochentag, Rhythmus, Uhrzeit (HH:MM), Dauer und Startdatum der Serie prüfen."})
 		return
 	}
@@ -370,79 +319,15 @@ func (s *teamSeiten) serieAnlegen(w http.ResponseWriter, r *http.Request) {
 		interner(w, "serie anlegen", err)
 		return
 	}
-	umleiten(w, r, "/m/"+id)
+	umleiten(w, r, "/m/"+z.Objekt.ID)
 }
 
-func (s *teamSeiten) serieBeenden(w http.ResponseWriter, r *http.Request) {
-	v, _, ok := angemeldet(w, r)
-	if !ok {
-		return
-	}
-	id := r.PathValue("id")
-	if !uuidPattern.MatchString(id) {
-		http.NotFound(w, r)
-		return
-	}
-	sr, err := s.termine.Serie(r.Context(), v.ID, id)
-	if errors.Is(err, termin.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		interner(w, "serie laden", err)
-		return
-	}
-	if _, _, ok := s.verwalterVon(w, r, sr.MannschaftID); !ok {
-		return
-	}
-	if err := s.termine.SerieBeenden(r.Context(), v.ID, id); err != nil && !errors.Is(err, termin.ErrNotFound) {
+func (s *teamSeiten) serieBeenden(w http.ResponseWriter, r *http.Request, z Zugang[termin.Serie]) {
+	if err := s.termine.SerieBeenden(r.Context(), z.Verein.ID, z.Objekt.ID); err != nil && !errors.Is(err, termin.ErrNotFound) {
 		interner(w, "serie beenden", err)
 		return
 	}
-	umleiten(w, r, "/m/"+sr.MannschaftID)
-}
-
-// terminLaden liefert den Termin aus dem Pfad und ob das Konto ihn verwalten darf.
-// Wer weder zum Team gehört noch verwalten darf, bekommt 403.
-func (s *teamSeiten) terminLaden(w http.ResponseWriter, r *http.Request) (verein.Verein, termin.Termin, bool, bool) {
-	v, k, ok := angemeldet(w, r)
-	if !ok {
-		return v, termin.Termin{}, false, false
-	}
-	id := r.PathValue("id")
-	if !uuidPattern.MatchString(id) {
-		http.NotFound(w, r)
-		return v, termin.Termin{}, false, false
-	}
-	ctx := r.Context()
-	t, err := s.termine.Termin(ctx, v.ID, id)
-	if errors.Is(err, termin.ErrNotFound) {
-		http.NotFound(w, r)
-		return v, t, false, false
-	}
-	if err != nil {
-		interner(w, "termin laden", err)
-		return v, t, false, false
-	}
-	verwalter, err := s.istVerwalter(ctx, v, k, t.MannschaftID)
-	if err != nil {
-		interner(w, "berechtigung prüfen", err)
-		return v, t, false, false
-	}
-	team := verwalter
-	if !team {
-		if team, err = s.termine.GehoertZumTeam(ctx, v.ID, t.MannschaftID, k.ID); err != nil {
-			interner(w, "team prüfen", err)
-			return v, t, false, false
-		}
-	}
-	if !team {
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Diesen Termin sieht nur das Team.", LinkZiel: "/", LinkText: "Zur Startseite",
-		})
-		return v, t, false, false
-	}
-	return v, t, verwalter, true
+	umleiten(w, r, "/m/"+z.MannschaftID)
 }
 
 type terminSeite struct {
@@ -463,18 +348,15 @@ type terminSeite struct {
 	DienstFehler string
 }
 
-func (s *teamSeiten) terminDetail(w http.ResponseWriter, r *http.Request) {
-	v, t, verwalter, ok := s.terminLaden(w, r)
-	if !ok {
-		return
-	}
-	s.terminSeiteZeigen(w, r, v, http.StatusOK, terminSeite{Termin: t, Verwalter: verwalter, Form: terminFormAus(t.Daten)})
+func (s *teamSeiten) terminDetail(w http.ResponseWriter, r *http.Request, z Zugang[termin.Termin]) {
+	s.terminSeiteZeigen(w, r, z, http.StatusOK, terminSeite{Verwalter: z.Verwalter, Form: terminFormAus(z.Objekt.Daten)})
 }
 
-func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v verein.Verein, status int, seite terminSeite) {
+// terminSeiteZeigen rendert den Termin aus dem Zugang; seite bringt Formular und Fehler mit.
+func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, z Zugang[termin.Termin], status int, seite terminSeite) {
 	ctx := r.Context()
-	k, _ := kontoAus(ctx)
-	t := seite.Termin
+	v, k, t := z.Verein, z.Konto, z.Objekt
+	seite.Termin = t
 	meine, err := s.termine.MeineSpieler(ctx, v.ID, k.ID, []string{t.ID})
 	if err != nil {
 		interner(w, "eigene spieler laden", err)
@@ -495,12 +377,7 @@ func (s *teamSeiten) terminSeiteZeigen(w http.ResponseWriter, r *http.Request, v
 	renderStatus(w, r, status, "termin.html", seite)
 }
 
-func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
-	v, t, verwalter, ok := s.terminLaden(w, r)
-	if !ok {
-		return
-	}
-	k, _ := kontoAus(r.Context())
+func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request, z Zugang[termin.Termin]) {
 	spieler := r.PathValue("spieler")
 	if !uuidPattern.MatchString(spieler) {
 		http.NotFound(w, r)
@@ -511,15 +388,13 @@ func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
 		// Das Formular schickt die Grundauswahl bei beiden Knöpfen mit; nur Absagen haben einen Grund.
 		grund = r.PostFormValue("grund")
 	}
-	err := s.termine.Rueckmelden(r.Context(), v.ID, t.ID, spieler, k.ID, status, grund, verwalter)
-	zurueck := "/t/" + t.ID
+	err := s.termine.Rueckmelden(r.Context(), z.Verein.ID, z.Objekt.ID, spieler, z.Konto.ID, status, grund, z.Verwalter)
+	zurueck := "/t/" + z.Objekt.ID
 	switch {
 	case errors.Is(err, termin.ErrUngueltig):
 		http.Error(w, "Ungültige Rückmeldung", http.StatusBadRequest)
 	case errors.Is(err, termin.ErrNichtBerechtigt):
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Für diesen Spieler kannst du nicht zu- oder absagen.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
-		})
+		keinZugriff(w, r, "Für diesen Spieler kannst du nicht zu- oder absagen.", zurueck, "Zurück zum Termin")
 	case errors.Is(err, termin.ErrFristVorbei), errors.Is(err, termin.ErrAbgesagt):
 		renderStatus(w, r, http.StatusConflict, "meldung.html", meldung{
 			Titel: "Nicht mehr möglich", Text: "Die Frist ist vorbei oder der Termin wurde abgesagt. Bitte sag dem Trainer direkt Bescheid.",
@@ -535,50 +410,29 @@ func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *teamSeiten) verwalterTermin(w http.ResponseWriter, r *http.Request) (verein.Verein, termin.Termin, bool) {
-	v, t, verwalter, ok := s.terminLaden(w, r)
-	if ok && !verwalter {
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Termine ändern nur die Trainer.", LinkZiel: "/t/" + t.ID, LinkText: "Zurück zum Termin",
-		})
-		return v, t, false
-	}
-	return v, t, ok
-}
-
-func (s *teamSeiten) terminAendern(w http.ResponseWriter, r *http.Request) {
-	v, t, ok := s.verwalterTermin(w, r)
-	if !ok {
-		return
-	}
+func (s *teamSeiten) terminAendern(w http.ResponseWriter, r *http.Request, z Zugang[termin.Termin]) {
 	f := terminFormLesen(r)
 	d, err := f.daten()
 	if err == nil {
-		k, _ := kontoAus(r.Context())
-		err = s.termine.Aendern(r.Context(), v.ID, t.ID, k.ID, d)
+		err = s.termine.Aendern(r.Context(), z.Verein.ID, z.Objekt.ID, z.Konto.ID, d)
 	}
 	if errors.Is(err, termin.ErrUngueltig) {
-		s.terminSeiteZeigen(w, r, v, http.StatusBadRequest, terminSeite{Termin: t, Verwalter: true, Form: f, Fehler: terminFehler})
+		s.terminSeiteZeigen(w, r, z, http.StatusBadRequest, terminSeite{Verwalter: true, Form: f, Fehler: terminFehler})
 		return
 	}
 	if err != nil {
 		interner(w, "termin ändern", err)
 		return
 	}
-	umleiten(w, r, "/t/"+t.ID)
+	umleiten(w, r, "/t/"+z.Objekt.ID)
 }
 
-func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request) {
-	v, t, ok := s.verwalterTermin(w, r)
-	if !ok {
-		return
-	}
-	k, _ := kontoAus(r.Context())
-	if err := s.termine.Absagen(r.Context(), v.ID, t.ID, k.ID); err != nil {
+func (s *teamSeiten) terminAbsagen(w http.ResponseWriter, r *http.Request, z Zugang[termin.Termin]) {
+	if err := s.termine.Absagen(r.Context(), z.Verein.ID, z.Objekt.ID, z.Konto.ID); err != nil {
 		interner(w, "termin absagen", err)
 		return
 	}
-	umleiten(w, r, "/t/"+t.ID)
+	umleiten(w, r, "/t/"+z.Objekt.ID)
 }
 
 // dienstAnsichten lädt die Dienste des Termins und für Trainer, wen sie einteilen können.

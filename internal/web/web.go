@@ -102,15 +102,41 @@ type Options struct {
 
 // NewHandler baut den Router der Anwendung.
 func NewHandler(o Options) http.Handler {
+	o = mitVorgaben(o)
+	root := http.NewServeMux()
+	// Ohne Mandantenauflösung, weil der Docker-Healthcheck localhost aufruft.
+	root.HandleFunc("GET /healthz", healthz(o.DB))
+	kn := &kennungen{rollen: neueRollen(o), team: o.Team}
+	root.Handle("/", mandant(o.Scheme, o.BaseHost, o.Vereine, sitzung(o.Auth, mitKennung(kn, routenVon(o)))))
+
+	// CSRF: Schreibende Requests von fremden Origins lehnt die Standardbibliothek
+	// anhand von Sec-Fetch-Site bzw. Origin ab; dazu kommt SameSite=Lax am Cookie.
+	return http.NewCrossOriginProtection().Handler(root)
+}
+
+func mitVorgaben(o Options) Options {
 	if o.Scheme == "" {
 		o.Scheme = "https"
 	}
-	rollen := &rollen{vereine: o.Vereine, superadmins: map[string]bool{}}
+	return o
+}
+
+func neueRollen(o Options) *rollen {
+	rl := &rollen{vereine: o.Vereine, superadmins: map[string]bool{}}
 	for _, e := range o.Superadmins {
 		if e = auth.NormalisiereEmail(e); e != "" {
-			rollen.superadmins[e] = true
+			rl.superadmins[e] = true
 		}
 	}
+	return rl
+}
+
+// routenVon registriert jede Route der Anwendung mit ihrer Regel im Zugriffsmodul.
+func routenVon(o Options) *router {
+	o = mitVorgaben(o)
+	rollen := neueRollen(o)
+	z := &zugriff{scheme: o.Scheme, rollen: rollen, team: o.Team, termine: o.Termine}
+	rt := neuerRouter(z)
 	l := &login{
 		auth:       o.Auth,
 		mailer:     o.Mailer,
@@ -121,75 +147,69 @@ func NewHandler(o Options) http.Handler {
 		proIP:      auth.NewLimiter(20, 15*time.Minute),
 	}
 
-	app := http.NewServeMux()
-	app.HandleFunc("GET /{$}", index(o, rollen))
-	app.HandleFunc("GET /login", l.formular)
-	app.HandleFunc("POST /login", l.anfordern)
-	app.HandleFunc("GET /auth/{token}", l.bestaetigen)
-	app.HandleFunc("POST /auth/{token}", l.einloesen)
-	app.HandleFunc("POST /logout", l.abmelden)
-	statisch(app)
-	app.HandleFunc("GET /verein.css", vereinCSS)
-	app.HandleFunc("GET /impressum", rechtliches(o.Betreiber, "impressum.html", "Impressum"))
-	app.HandleFunc("GET /datenschutz", rechtliches(o.Betreiber, "datenschutz.html", "Datenschutz"))
+	rt.oeffentlich("GET /{$}", "Startseite, angemeldet mit mehr Inhalt", index(o, rollen))
+	rt.oeffentlich("GET /login", "Anmeldung", l.formular)
+	rt.oeffentlich("POST /login", "Anmeldung", l.anfordern)
+	rt.oeffentlich("GET /auth/{token}", "Magic Link", l.bestaetigen)
+	rt.oeffentlich("POST /auth/{token}", "Magic Link", l.einloesen)
+	rt.oeffentlich("POST /logout", "Abmeldung", l.abmelden)
+	statisch(rt)
+	rt.oeffentlich("GET /verein.css", "Vereinsfarbe", vereinCSS)
+	rt.oeffentlich("GET /impressum", "Pflichtangabe", rechtliches(o.Betreiber, "impressum.html", "Impressum"))
+	rt.oeffentlich("GET /datenschutz", "Pflichtangabe", rechtliches(o.Betreiber, "datenschutz.html", "Datenschutz"))
 	e := &einstellungen{vapidKey: o.VAPIDPublicKey, scheme: o.Scheme}
 	if o.Kalender != nil && o.Termine != nil {
 		e.kalender, e.termine = o.Kalender, o.Termine
-		app.HandleFunc("POST /einstellungen/kalender", e.kalenderErneuern)
-		app.HandleFunc("GET /kalender/{datei}", e.kalenderFeed)
+		rt.ohneObjekt("POST /einstellungen/kalender", Angemeldet, e.kalenderErneuern)
+		rt.oeffentlich("GET /kalender/{datei}", "geheimer Link ersetzt das Login", e.kalenderFeed)
 	}
 	if o.Push != nil && o.VAPIDPublicKey != "" {
 		e.abos = o.Push
-		app.HandleFunc("POST /push/abo", e.abo)
-		app.HandleFunc("DELETE /push/abo", e.abo)
+		rt.ohneObjekt("POST /push/abo", KontoAPI, e.abo)
+		rt.ohneObjekt("DELETE /push/abo", KontoAPI, e.abo)
 	}
-	app.HandleFunc("GET /einstellungen", e.seite)
+	rt.ohneObjekt("GET /einstellungen", Konto, e.seite)
 	if o.Team != nil {
-		t := &teamSeiten{team: o.Team, termine: o.Termine, rollen: rollen, scheme: o.Scheme}
-		app.HandleFunc("GET /m/{id}", t.mannschaft)
-		app.HandleFunc("POST /m/{id}/einladung", t.einladung)
-		app.HandleFunc("GET /join/{token}", t.joinFormular)
-		app.HandleFunc("POST /join/{token}", t.joinAnfragen)
-		app.HandleFunc("POST /anfragen/{id}/freigeben", t.anfrageEntscheiden(t.freigeben))
-		app.HandleFunc("POST /anfragen/{id}/ablehnen", t.anfrageEntscheiden(t.ablehnen))
+		t := &teamSeiten{team: o.Team, termine: o.Termine, scheme: o.Scheme}
+		mannschaft := z.mannschaft()
+		mitObjekt(rt, "GET /m/{id}", Verwalter, mannschaft, t.mannschaft)
+		mitObjekt(rt, "POST /m/{id}/einladung", Verwalter, mannschaft, t.einladung)
+		rt.ohneObjekt("GET /join/{token}", Angemeldet, t.joinFormular)
+		rt.ohneObjekt("POST /join/{token}", Angemeldet, t.joinAnfragen)
+		mitObjekt(rt, "POST /anfragen/{id}/freigeben", Trainer, z.anfrage(), t.anfrageEntscheiden(t.freigeben))
+		mitObjekt(rt, "POST /anfragen/{id}/ablehnen", Trainer, z.anfrage(), t.anfrageEntscheiden(t.ablehnen))
 
 		if o.Termine != nil {
-			app.HandleFunc("GET /m/{id}/termine/neu", t.terminNeu)
-			app.HandleFunc("POST /m/{id}/termine", t.terminAnlegen)
-			app.HandleFunc("POST /m/{id}/serien", t.serieAnlegen)
-			app.HandleFunc("POST /serien/{id}/beenden", t.serieBeenden)
-			app.HandleFunc("GET /m/{id}/statistik", t.statistik)
-			app.HandleFunc("GET /t/{id}", t.terminDetail)
-			app.HandleFunc("POST /t/{id}", t.terminAendern)
-			app.HandleFunc("POST /t/{id}/absagen", t.terminAbsagen)
-			app.HandleFunc("POST /t/{id}/rueckmeldung/{spieler}", t.rueckmelden)
-			app.HandleFunc("POST /t/{id}/anwesenheit/{spieler}", t.anwesenheitSetzen)
-			app.HandleFunc("POST /t/{id}/dienste", t.dienstAnlegen)
-			app.HandleFunc("POST /t/{id}/dienste/{dienst}", t.dienstAendern)
-			app.HandleFunc("POST /t/{id}/dienste/{dienst}/loeschen", t.dienstLoeschen)
-			app.HandleFunc("POST /t/{id}/dienste/{dienst}/eintragen", t.dienstEintrag(true))
-			app.HandleFunc("POST /t/{id}/dienste/{dienst}/austragen", t.dienstEintrag(false))
+			tm := z.termin()
+			aendern := Verwalter.Text("Termine ändern nur die Trainer.")
+			mitObjekt(rt, "GET /m/{id}/termine/neu", Verwalter, mannschaft, t.terminNeu)
+			mitObjekt(rt, "POST /m/{id}/termine", Verwalter, mannschaft, t.terminAnlegen)
+			mitObjekt(rt, "POST /m/{id}/serien", Verwalter, mannschaft, t.serieAnlegen)
+			mitObjekt(rt, "POST /serien/{id}/beenden", Verwalter, z.serie(), t.serieBeenden)
+			// Nur Trainer, nicht Vereinsadmins: Die Zahlen sind für die Arbeit mit der Mannschaft gedacht.
+			mitObjekt(rt, "GET /m/{id}/statistik", Trainer, mannschaft, t.statistik)
+			mitObjekt(rt, "GET /t/{id}", TeamMitglied, tm, t.terminDetail)
+			mitObjekt(rt, "POST /t/{id}", aendern, tm, t.terminAendern)
+			mitObjekt(rt, "POST /t/{id}/absagen", aendern, tm, t.terminAbsagen)
+			mitObjekt(rt, "POST /t/{id}/rueckmeldung/{spieler}", TeamMitglied, tm, t.rueckmelden)
+			mitObjekt(rt, "POST /t/{id}/anwesenheit/{spieler}", Verwalter.Text("Die Anwesenheit tragen nur die Trainer ein."), tm, t.anwesenheitSetzen)
+			mitObjekt(rt, "POST /t/{id}/dienste", aendern, tm, t.dienstAnlegen)
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}", aendern, tm, t.dienstAendern)
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/loeschen", aendern, tm, t.dienstLoeschen)
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/eintragen", TeamMitglied, tm, t.dienstEintrag(true))
+			mitObjekt(rt, "POST /t/{id}/dienste/{dienst}/austragen", TeamMitglied, tm, t.dienstEintrag(false))
 		}
 
-		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, rollen: rollen, scheme: o.Scheme}
-		app.HandleFunc("GET /admin", a.seite)
-		app.HandleFunc("POST /admin/vereine", a.vereinAnlegen)
-		app.HandleFunc("POST /admin/admins", a.adminHinzufuegen)
-		app.HandleFunc("POST /admin/farbe", a.farbeSetzen)
-		app.HandleFunc("POST /admin/mannschaften", a.mannschaftAnlegen)
-		app.HandleFunc("POST /admin/mannschaften/{id}/trainer", a.trainerHinzufuegen)
-		app.HandleFunc("POST /admin/mannschaften/{id}/trainer/{konto}/entfernen", a.trainerEntfernen)
+		a := &verwaltung{vereine: o.Vereine, team: o.Team, auth: o.Auth, scheme: o.Scheme}
+		rt.ohneObjekt("GET /admin", Admin, a.seite)
+		rt.ohneObjekt("POST /admin/vereine", Superadmin, a.vereinAnlegen)
+		rt.ohneObjekt("POST /admin/admins", Vereinsadmin, a.adminHinzufuegen)
+		rt.ohneObjekt("POST /admin/farbe", Vereinsadmin, a.farbeSetzen)
+		rt.ohneObjekt("POST /admin/mannschaften", Vereinsadmin, a.mannschaftAnlegen)
+		mitObjekt(rt, "POST /admin/mannschaften/{id}/trainer", Vereinsadmin, mannschaft, a.trainerHinzufuegen)
+		mitObjekt(rt, "POST /admin/mannschaften/{id}/trainer/{konto}/entfernen", Vereinsadmin, mannschaft, a.trainerEntfernen)
 	}
-
-	root := http.NewServeMux()
-	// Ohne Mandantenauflösung, weil der Docker-Healthcheck localhost aufruft.
-	root.HandleFunc("GET /healthz", healthz(o.DB))
-	kn := &kennungen{rollen: rollen, team: o.Team}
-	root.Handle("/", mandant(o.Scheme, o.BaseHost, o.Vereine, sitzung(o.Auth, mitKennung(kn, app))))
-
-	// CSRF: Schreibende Requests von fremden Origins lehnt die Standardbibliothek
-	// anhand von Sec-Fetch-Site bzw. Origin ab; dazu kommt SameSite=Lax am Cookie.
-	return http.NewCrossOriginProtection().Handler(root)
+	return rt
 }
 
 func index(o Options, rl *rollen) http.HandlerFunc {

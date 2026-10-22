@@ -23,7 +23,7 @@ type PushAbos interface {
 }
 
 // statisch liefert Service Worker, Manifest, Skript und Icons aus.
-func statisch(app *http.ServeMux) {
+func statisch(rt *router) {
 	sub, _ := fs.Sub(staticFS, "static")
 	dateien := http.FileServerFS(sub)
 	datei := func(name, typ string) http.HandlerFunc {
@@ -34,15 +34,15 @@ func statisch(app *http.ServeMux) {
 			http.ServeFileFS(w, r, sub, name)
 		}
 	}
-	app.HandleFunc("GET /sw.js", datei("sw.js", "text/javascript; charset=utf-8"))
+	rt.oeffentlich("GET /sw.js", "statische Datei", datei("sw.js", "text/javascript; charset=utf-8"))
 	manifest, _ := fs.ReadFile(sub, "manifest.webmanifest")
-	app.HandleFunc("GET /manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+	rt.oeffentlich("GET /manifest.webmanifest", "statische Datei", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/manifest+json")
 		w.Header().Set("Cache-Control", "no-cache")
 		// Auf dem Startbildschirm startet die App im Verein, von dessen Seite sie stammt.
 		_, _ = w.Write(bytes.Replace(manifest, []byte(`"start_url": "/"`), []byte(`"start_url": "`+basis(r)+`/"`), 1))
 	})
-	app.Handle("GET /static/", http.StripPrefix("/static/", dateien))
+	rt.oeffentlich("GET /static/", "statische Dateien", http.StripPrefix("/static/", dateien).ServeHTTP)
 }
 
 type einstellungen struct {
@@ -65,23 +65,18 @@ type einstellungenSeite struct {
 	KalenderWebcal template.URL
 }
 
-func (e *einstellungen) seite(w http.ResponseWriter, r *http.Request) {
-	e.zeigen(w, r, "")
+func (e *einstellungen) seite(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) {
+	e.zeigen(w, r, z, "")
 }
 
-func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, token string) {
-	k, ok := kontoAus(r.Context())
-	if !ok {
-		umleiten(w, r, "/login?weiter=/einstellungen")
-		return
-	}
+func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, z Zugang[Keins], token string) {
 	data := einstellungenSeite{Titel: "Einstellungen"}
 	if e.abos != nil {
 		data.VAPIDKey = e.vapidKey
 	}
-	if v, ok := vereinAus(r.Context()); ok && e.kalender != nil {
+	if z.ImVerein && e.kalender != nil {
 		data.Kalender = true
-		aktiv, err := e.kalender.Vorhanden(r.Context(), v.ID, k.ID)
+		aktiv, err := e.kalender.Vorhanden(r.Context(), z.Verein.ID, z.Konto.ID)
 		if err != nil {
 			interner(w, "kalender-link prüfen", err)
 			return
@@ -97,12 +92,7 @@ func (e *einstellungen) zeigen(w http.ResponseWriter, r *http.Request, token str
 
 // abo speichert (POST) oder löscht (DELETE) das Push-Abo des Geräts; der Body ist JSON
 // von PushManager.subscribe() bzw. {"endpoint": …}.
-func (e *einstellungen) abo(w http.ResponseWriter, r *http.Request) {
-	k, ok := kontoAus(r.Context())
-	if !ok {
-		http.Error(w, "Nicht angemeldet", http.StatusUnauthorized)
-		return
-	}
+func (e *einstellungen) abo(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) {
 	var a push.Abo
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&a); err != nil {
 		http.Error(w, "Ungültiges Abo", http.StatusBadRequest)
@@ -110,9 +100,9 @@ func (e *einstellungen) abo(w http.ResponseWriter, r *http.Request) {
 	}
 	var err error
 	if r.Method == http.MethodDelete {
-		err = e.abos.Loeschen(r.Context(), k.ID, a.Endpoint)
+		err = e.abos.Loeschen(r.Context(), z.Konto.ID, a.Endpoint)
 	} else {
-		err = e.abos.Speichern(r.Context(), k.ID, a)
+		err = e.abos.Speichern(r.Context(), z.Konto.ID, a)
 	}
 	switch {
 	case errors.Is(err, push.ErrUngueltig):
