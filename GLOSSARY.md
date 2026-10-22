@@ -16,6 +16,6 @@ Fachbegriffe von Teamtafel. Code-Bezeichner stehen in Klammern, wenn sie vom Beg
 
 **Team** (`TeamMitglied`): Wer zur Mannschaft gehört: Verwalter, Spieler mit eigenem Konto und Eltern (Vertretungen) von Spielern im Kader. Das Team sieht die Termine der Mannschaft.
 
-**Regel**: Was eine Route verlangt (`Konto`, `Angemeldet`, `TeamMitglied`, `Verwalter`, `Trainer`, `Admin`, `Vereinsadmin`, `Superadmin`, oder öffentlich). Jede Route wird mit ihrer Regel im Zugriffsmodul registriert.
+**Regel**: Was eine Route verlangt (`Konto`, `KontoAPI`, `Angemeldet`, `TeamMitglied`, `Verwalter`, `Trainer`, `Admin`, `Vereinsadmin`, `Superadmin`, oder öffentlich). `KontoAPI` antwortet ohne Login mit 401 statt zur Anmeldung zu leiten. Jede Route wird mit ihrer Regel im Zugriffsmodul registriert.
 
 **Zugang**: Was das Zugriffsmodul für eine Anfrage aufgelöst hat: Verein, Konto, das Objekt aus dem Pfad mit seiner Mannschaft und die Rolle (Trainer, Verwalter). Handler bekommen ihn als Parameter.
