@@ -327,6 +327,7 @@ func TestRegistrierungPrueftRegelUndObjekt(t *testing.T) {
 		f()
 	}
 	leer := func(http.ResponseWriter, *http.Request, Zugang[Keins]) {}
+	panics("öffentlich ohne grund", func() { neuerRouter(z).oeffentlich("GET /x", "", func(http.ResponseWriter, *http.Request) {}) })
 	panics("objektregel ohne objekt", func() { neuerRouter(z).ohneObjekt("GET /x", TeamMitglied, leer) })
 	panics("objekt ohne id", func() {
 		mitObjekt(neuerRouter(z), "GET /x", Verwalter, z.termin(), func(http.ResponseWriter, *http.Request, Zugang[termin.Termin]) {})
