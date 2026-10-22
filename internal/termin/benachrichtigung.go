@@ -124,8 +124,8 @@ JOIN kader k ON k.mannschaft_id = t.mannschaft_id
 JOIN spieler sp ON sp.id = k.spieler_id
 JOIN LATERAL (
 	SELECT sp.konto_id WHERE sp.konto_id IS NOT NULL
-	UNION SELECT v.konto_id FROM vertretung v WHERE v.spieler_id = sp.id AND antwortberechtigt(sp.id, v.konto_id)
-) a ON true
+	UNION SELECT v.konto_id FROM vertretung v WHERE v.spieler_id = sp.id
+) a ON antwortberechtigt(sp.id, a.konto_id)
 WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM rueckmeldung r WHERE r.termin_id = t.id AND r.spieler_id = sp.id)
 GROUP BY a.konto_id`, terminID)
 	if err != nil {
