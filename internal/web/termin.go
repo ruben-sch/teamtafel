@@ -394,9 +394,7 @@ func (s *teamSeiten) rueckmelden(w http.ResponseWriter, r *http.Request, z Zugan
 	case errors.Is(err, termin.ErrUngueltig):
 		http.Error(w, "Ungültige Rückmeldung", http.StatusBadRequest)
 	case errors.Is(err, termin.ErrNichtBerechtigt):
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Für diesen Spieler kannst du nicht zu- oder absagen.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
-		})
+		keinZugriff(w, r, "Für diesen Spieler kannst du nicht zu- oder absagen.", zurueck, "Zurück zum Termin")
 	case errors.Is(err, termin.ErrFristVorbei), errors.Is(err, termin.ErrAbgesagt):
 		renderStatus(w, r, http.StatusConflict, "meldung.html", meldung{
 			Titel: "Nicht mehr möglich", Text: "Die Frist ist vorbei oder der Termin wurde abgesagt. Bitte sag dem Trainer direkt Bescheid.",

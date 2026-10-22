@@ -88,6 +88,14 @@ func (g Regel) ohneObjekt() bool {
 // errUnbekannt: Das Objekt gibt es im Verein der Anfrage nicht (oder RLS verbirgt es).
 var errUnbekannt = errors.New("objekt unbekannt")
 
+// unbekannt macht aus dem Nicht-gefunden-Fehler eines Stores errUnbekannt.
+func unbekannt(err, nichtGefunden error) error {
+	if errors.Is(err, nichtGefunden) {
+		return errUnbekannt
+	}
+	return err
+}
+
 // Objekt sagt, wie das Zugriffsmodul {id} lädt.
 type Objekt[O any] struct {
 	art string
@@ -113,10 +121,7 @@ type zugriff struct {
 func (z *zugriff) mannschaft() Objekt[verein.Mannschaft] {
 	return Objekt[verein.Mannschaft]{art: "mannschaft", laden: func(ctx context.Context, vereinID, id string) (verein.Mannschaft, string, error) {
 		m, err := z.team.Mannschaft(ctx, vereinID, id)
-		if errors.Is(err, verein.ErrNotFound) {
-			err = errUnbekannt
-		}
-		return m, m.ID, err
+		return m, m.ID, unbekannt(err, verein.ErrNotFound)
 	}}
 }
 
@@ -125,30 +130,21 @@ func (z *zugriff) termin() Objekt[termin.Termin] {
 		fremdText: "Diesen Termin sieht nur das Team.",
 		laden: func(ctx context.Context, vereinID, id string) (termin.Termin, string, error) {
 			t, err := z.termine.Termin(ctx, vereinID, id)
-			if errors.Is(err, termin.ErrNotFound) {
-				err = errUnbekannt
-			}
-			return t, t.MannschaftID, err
+			return t, t.MannschaftID, unbekannt(err, termin.ErrNotFound)
 		}}
 }
 
 func (z *zugriff) serie() Objekt[termin.Serie] {
 	return Objekt[termin.Serie]{art: "serie", laden: func(ctx context.Context, vereinID, id string) (termin.Serie, string, error) {
 		s, err := z.termine.Serie(ctx, vereinID, id)
-		if errors.Is(err, termin.ErrNotFound) {
-			err = errUnbekannt
-		}
-		return s, s.MannschaftID, err
+		return s, s.MannschaftID, unbekannt(err, termin.ErrNotFound)
 	}}
 }
 
 func (z *zugriff) anfrage() Objekt[beitrittsanfrage] {
 	return Objekt[beitrittsanfrage]{art: "anfrage", laden: func(ctx context.Context, vereinID, id string) (beitrittsanfrage, string, error) {
 		m, err := z.team.AnfrageMannschaft(ctx, vereinID, id)
-		if errors.Is(err, team.ErrAnfrageUnbekannt) {
-			err = errUnbekannt
-		}
-		return beitrittsanfrage{ID: id}, m, err
+		return beitrittsanfrage{ID: id}, m, unbekannt(err, team.ErrAnfrageUnbekannt)
 	}}
 }
 
@@ -333,8 +329,9 @@ func (rl rolle) erfuellt(s stufe) bool {
 	return false
 }
 
-// rolle fragt nur ab, was die Stufe braucht: Trainer, dann Admin, dann Team.
-// Auf Admin-Routen zählt nur die Adminrolle, Trainer verwalten dort nichts.
+// rolle fragt der Reihe nach Trainer, Admin und Team ab und hört auf, sobald das
+// Ergebnis feststeht; das Team nur auf Routen, die es brauchen. Auf Admin-Routen
+// zählt nur die Adminrolle, Trainer verwalten dort nichts.
 func (z *zugriff) rolle(ctx context.Context, vereinID string, k auth.Konto, mannschaftID string, s stufe) (rolle, error) {
 	var rl rolle
 	var err error

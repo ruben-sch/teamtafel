@@ -91,9 +91,7 @@ func (s *teamSeiten) dienstEintrag(eintragen bool) Handler[termin.Termin] {
 		}
 		zurueck := "/t/" + t.ID
 		if konto != k.ID && (!z.Verwalter || !uuidPattern.MatchString(konto)) {
-			renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-				Titel: "Kein Zugriff", Text: "Andere ein- oder austragen können nur die Trainer.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
-			})
+			keinZugriff(w, r, "Andere ein- oder austragen können nur die Trainer.", zurueck, "Zurück zum Termin")
 			return
 		}
 		var err error
@@ -106,9 +104,7 @@ func (s *teamSeiten) dienstEintrag(eintragen bool) Handler[termin.Termin] {
 		case errors.Is(err, termin.ErrNotFound):
 			http.NotFound(w, r)
 		case errors.Is(err, termin.ErrNichtBerechtigt):
-			renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-				Titel: "Kein Zugriff", Text: "Dienste übernehmen kann nur, wer zur Mannschaft gehört.", LinkZiel: zurueck, LinkText: "Zurück zum Termin",
-			})
+			keinZugriff(w, r, "Dienste übernehmen kann nur, wer zur Mannschaft gehört.", zurueck, "Zurück zum Termin")
 		case errors.Is(err, termin.ErrVoll), errors.Is(err, termin.ErrFristVorbei), errors.Is(err, termin.ErrAbgesagt):
 			renderStatus(w, r, http.StatusConflict, "meldung.html", meldung{
 				Titel: "Nicht mehr möglich", Text: "Der Dienst ist schon voll, der Termin hat begonnen oder wurde abgesagt.",
