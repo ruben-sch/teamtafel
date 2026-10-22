@@ -127,43 +127,33 @@ type aufgerufen struct {
 	verwalter    bool
 }
 
+// merke ist ein Handler, der nur festhält, welchen Zugang er bekommen hat.
+func merke[O any](got *aufgerufen, id func(O) string) Handler[O] {
+	return func(_ http.ResponseWriter, _ *http.Request, zg Zugang[O]) {
+		*got = aufgerufen{ok: true, verein: zg.Verein.ID, imVerein: zg.ImVerein, konto: zg.Konto.ID, objekt: id(zg.Objekt),
+			mannschaftID: zg.MannschaftID, trainer: zg.Trainer, verwalter: zg.Verwalter}
+	}
+}
+
 // stubRouter registriert je Regel und Objekt eine Route, deren Handler nur mitschreibt.
 func (w *zugriffWelt) stubRouter(got *aufgerufen) http.Handler {
 	z := w.zugriff()
 	rt := neuerRouter(z)
-	merke := func(objekt string) func(Zugang[Keins]) {
-		return func(zg Zugang[Keins]) {
-			*got = aufgerufen{ok: true, verein: zg.Verein.ID, imVerein: zg.ImVerein, konto: zg.Konto.ID, objekt: objekt,
-				mannschaftID: zg.MannschaftID, trainer: zg.Trainer, verwalter: zg.Verwalter}
-		}
-	}
-	mitObjekt(rt, "GET /team/t/{id}", TeamMitglied, z.termin(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[termin.Termin]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	mitObjekt(rt, "POST /verwalter/t/{id}", Verwalter, z.termin(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[termin.Termin]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	mitObjekt(rt, "GET /trainer/m/{id}", Trainer, z.mannschaft(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[verein.Mannschaft]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	mitObjekt(rt, "GET /verwalter/s/{id}", Verwalter, z.serie(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[termin.Serie]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	mitObjekt(rt, "GET /trainer/a/{id}", Trainer, z.anfrage(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[beitrittsanfrage]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	mitObjekt(rt, "GET /admin/m/{id}", Vereinsadmin, z.mannschaft(), func(rw http.ResponseWriter, r *http.Request, zg Zugang[verein.Mannschaft]) {
-		merke(zg.Objekt.ID)(Zugang[Keins]{Verein: zg.Verein, Konto: zg.Konto, MannschaftID: zg.MannschaftID, Trainer: zg.Trainer, Verwalter: zg.Verwalter})
-	})
-	ohne := func(muster string, g Regel) {
-		rt.ohneObjekt(muster, g, func(rw http.ResponseWriter, r *http.Request, zg Zugang[Keins]) { merke("")(zg) })
-	}
-	ohne("GET /konto", Konto)
-	ohne("POST /api", KontoAPI)
-	ohne("POST /angemeldet", Angemeldet)
-	ohne("GET /admin", Admin)
-	ohne("GET /vereinsadmin", Vereinsadmin)
-	ohne("GET /superadmin", Superadmin)
+	terminID := func(t termin.Termin) string { return t.ID }
+	mannschaftID := func(m verein.Mannschaft) string { return m.ID }
+	mitObjekt(rt, "GET /team/t/{id}", TeamMitglied, z.termin(), merke(got, terminID))
+	mitObjekt(rt, "POST /verwalter/t/{id}", Verwalter, z.termin(), merke(got, terminID))
+	mitObjekt(rt, "GET /trainer/m/{id}", Trainer, z.mannschaft(), merke(got, mannschaftID))
+	mitObjekt(rt, "GET /verwalter/s/{id}", Verwalter, z.serie(), merke(got, func(s termin.Serie) string { return s.ID }))
+	mitObjekt(rt, "GET /trainer/a/{id}", Trainer, z.anfrage(), merke(got, func(a beitrittsanfrage) string { return a.ID }))
+	mitObjekt(rt, "GET /admin/m/{id}", Vereinsadmin, z.mannschaft(), merke(got, mannschaftID))
+	keins := func(Keins) string { return "" }
+	rt.ohneObjekt("GET /konto", Konto, merke(got, keins))
+	rt.ohneObjekt("POST /api", KontoAPI, merke(got, keins))
+	rt.ohneObjekt("POST /angemeldet", Angemeldet, merke(got, keins))
+	rt.ohneObjekt("GET /admin", Admin, merke(got, keins))
+	rt.ohneObjekt("GET /vereinsadmin", Vereinsadmin, merke(got, keins))
+	rt.ohneObjekt("GET /superadmin", Superadmin, merke(got, keins))
 	rt.oeffentlich("GET /offen", "Test", func(rw http.ResponseWriter, r *http.Request) { *got = aufgerufen{ok: true} })
 	return mandant("https", "teamtafel.example", w.vereine, sitzung(w.auth, rt))
 }
@@ -304,8 +294,11 @@ func TestZugriffsmodul(t *testing.T) {
 				}
 				return
 			}
-			// Verein und Konto sind gesetzt, sobald die Regel sie kennt; der Rest kommt aus der Tabelle.
+			// Verein und Konto prüft TestZugangTraegtVereinUndKonto; Objekt-Routen laufen immer im Verein.
 			got.verein, got.konto = "", ""
+			if got.objekt != "" {
+				got.imVerein = false
+			}
 			if got != tt.want {
 				t.Errorf("zugang = %+v, want %+v", got, tt.want)
 			}
