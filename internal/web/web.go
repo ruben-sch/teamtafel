@@ -135,7 +135,7 @@ func neueRollen(o Options) *rollen {
 func routenVon(o Options) *router {
 	o = mitVorgaben(o)
 	rollen := neueRollen(o)
-	z := &zugriff{rollen: rollen, team: o.Team, termine: o.Termine}
+	z := &zugriff{scheme: o.Scheme, rollen: rollen, team: o.Team, termine: o.Termine}
 	rt := neuerRouter(z)
 	l := &login{
 		auth:       o.Auth,

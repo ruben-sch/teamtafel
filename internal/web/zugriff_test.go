@@ -109,6 +109,7 @@ func (w *zugriffWelt) anmelden(email string) (*http.Cookie, string) {
 
 func (w *zugriffWelt) zugriff() *zugriff {
 	return &zugriff{
+		scheme:  "https",
 		rollen:  &rollen{vereine: w.vereine, superadmins: map[string]bool{w.superadmin: true}},
 		team:    w.team,
 		termine: w.termine,
@@ -153,6 +154,7 @@ func (w *zugriffWelt) stubRouter(got *aufgerufen) http.Handler {
 	rt.ohneObjekt("POST /angemeldet", Angemeldet, merke(got, keins))
 	rt.ohneObjekt("GET /admin", Admin, merke(got, keins))
 	rt.ohneObjekt("GET /vereinsadmin", Vereinsadmin, merke(got, keins))
+	rt.ohneObjekt("POST /vereinsadmin", Vereinsadmin, merke(got, keins))
 	rt.ohneObjekt("GET /superadmin", Superadmin, merke(got, keins))
 	rt.oeffentlich("GET /offen", "Test", func(rw http.ResponseWriter, r *http.Request) { *got = aufgerufen{ok: true} })
 	return mandant("https", "teamtafel.example", w.vereine, sitzung(w.auth, rt))
@@ -204,6 +206,12 @@ func TestZugriffsmodul(t *testing.T) {
 			referer: "https://teamtafel.example" + a + "/t/" + w.termin, status: http.StatusSeeOther, ort: login("/t/" + w.termin)},
 		{name: "post anonym herkunft mit großem host", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,
 			referer: "https://TeamTafel.example" + a + "/t/" + w.termin, status: http.StatusSeeOther, ort: login("/t/" + w.termin)},
+		{name: "post anonym herkunft mit anderem schema", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,
+			referer: "http://teamtafel.example" + a + "/t/" + w.termin, status: http.StatusSeeOther, ort: login("/")},
+		{name: "post anonym auf admin-route ohne herkunft zur verwaltung", method: http.MethodPost, pfad: a + "/vereinsadmin",
+			status: http.StatusSeeOther, ort: login("/admin")},
+		{name: "post anonym auf admin-route mit herkunft", method: http.MethodPost, pfad: a + "/vereinsadmin",
+			referer: "https://teamtafel.example" + a + "/admin", status: http.StatusSeeOther, ort: login("/admin")},
 		{name: "post anonym fremde herkunft", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,
 			referer: "https://boese.example" + a + "/t/" + w.termin, status: http.StatusSeeOther, ort: login("/")},
 		{name: "post anonym ohne herkunft", method: http.MethodPost, pfad: a + "/verwalter/t/" + w.termin,
@@ -229,6 +237,9 @@ func TestZugriffsmodul(t *testing.T) {
 		{name: "admin-mannschaft für vereinsadmin", pfad: a + "/admin/m/" + w.mannschaft, konto: w.adminA, status: http.StatusOK,
 			want: aufgerufen{ok: true, objekt: w.mannschaft, mannschaftID: w.mannschaft, verwalter: true}},
 		{name: "admin-mannschaft nicht für trainer", pfad: a + "/admin/m/" + w.mannschaft, konto: w.trainer, status: http.StatusForbidden},
+		{name: "unbekannte admin-mannschaft für trainer 403", pfad: a + "/admin/m/" + unbekannt, konto: w.trainer, status: http.StatusForbidden},
+		{name: "admin-mannschaft ohne uuid für trainer 403", pfad: a + "/admin/m/abc", konto: w.trainer, status: http.StatusForbidden},
+		{name: "unbekannte admin-mannschaft für vereinsadmin 404", pfad: a + "/admin/m/" + unbekannt, konto: w.adminA, status: http.StatusNotFound},
 		{name: "admin-mannschaft ohne verein anonym zum login", pfad: "/admin/m/" + w.mannschaft, status: http.StatusSeeOther,
 			ort: "/login?weiter=" + url.QueryEscape("/admin/m/"+w.mannschaft)},
 		{name: "admin-mannschaft ohne verein für fremden 403", pfad: "/admin/m/" + w.mannschaft, konto: w.fremd, status: http.StatusForbidden},

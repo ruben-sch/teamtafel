@@ -113,6 +113,8 @@ type beitrittsanfrage struct{ ID string }
 
 // zugriff kennt die Stores, aus denen es Objekte und Rollen ermittelt.
 type zugriff struct {
+	// scheme der Anwendung, "https" oder lokal "http"; der Referer muss es teilen.
+	scheme  string
 	rollen  *rollen
 	team    Team
 	termine Termine
@@ -223,7 +225,7 @@ func (z *zugriff) ohneObjekt(w http.ResponseWriter, r *http.Request, g Regel) (Z
 	}
 	var ok bool
 	if zg.Konto, ok = kontoAus(ctx); !ok {
-		zumLogin(w, r, g)
+		z.zumLogin(w, r, g)
 		return zg, false
 	}
 	switch g.stufe {
@@ -262,20 +264,23 @@ func (z *zugriff) adminVorVerein(w http.ResponseWriter, r *http.Request, g Regel
 func pruefeObjekt[O any](z *zugriff, w http.ResponseWriter, r *http.Request, g Regel, o Objekt[O]) (Zugang[O], bool) {
 	ctx := r.Context()
 	var zg Zugang[O]
-	// Vereinsadmin-Routen prüfen wie die übrigen Admin-Routen erst Login und Adminrolle.
-	if zg.Verein, zg.ImVerein = vereinAus(ctx); !zg.ImVerein && g.stufe != stufeVereinsadmin {
+	// Vereinsadmin-Routen prüfen wie die übrigen Admin-Routen erst Login und Adminrolle,
+	// damit Nicht-Admins nicht an 403 oder 404 erkennen, ob es eine Mannschaft gibt.
+	admin := g.stufe == stufeVereinsadmin
+	if zg.Verein, zg.ImVerein = vereinAus(ctx); !zg.ImVerein && !admin {
 		http.NotFound(w, r)
 		return zg, false
 	}
 	var ok bool
 	if zg.Konto, ok = kontoAus(ctx); !ok {
-		zumLogin(w, r, g)
+		z.zumLogin(w, r, g)
+		return zg, false
+	}
+	if admin && !z.adminVorVerein(w, r, g, zg.Konto) {
 		return zg, false
 	}
 	if !zg.ImVerein {
-		if z.adminVorVerein(w, r, g, zg.Konto) {
-			http.NotFound(w, r)
-		}
+		http.NotFound(w, r)
 		return zg, false
 	}
 	id := r.PathValue("id")
@@ -292,6 +297,10 @@ func pruefeObjekt[O any](z *zugriff, w http.ResponseWriter, r *http.Request, g R
 	if err != nil {
 		interner(w, "zugriff "+o.art, err)
 		return zg, false
+	}
+	if admin {
+		zg.Verwalter = true
+		return zg, true
 	}
 	rl, err := z.rolle(ctx, zg.Verein.ID, zg.Konto, zg.MannschaftID, g.stufe)
 	if err != nil {
@@ -323,22 +332,19 @@ func (rl rolle) erfuellt(s stufe) bool {
 		return rl.team
 	case stufeTrainer:
 		return rl.trainer
-	case stufeVerwalter, stufeVereinsadmin:
+	case stufeVerwalter:
 		return rl.verwalter
 	}
 	return false
 }
 
 // rolle fragt der Reihe nach Trainer, Admin und Team ab und hört auf, sobald das
-// Ergebnis feststeht; das Team nur auf Routen, die es brauchen. Auf Admin-Routen
-// zählt nur die Adminrolle, Trainer verwalten dort nichts.
+// Ergebnis feststeht; das Team nur auf Routen, die es brauchen.
 func (z *zugriff) rolle(ctx context.Context, vereinID string, k auth.Konto, mannschaftID string, s stufe) (rolle, error) {
 	var rl rolle
 	var err error
-	if s != stufeVereinsadmin {
-		if rl.trainer, err = z.team.IstTrainer(ctx, vereinID, mannschaftID, k.ID); err != nil {
-			return rl, err
-		}
+	if rl.trainer, err = z.team.IstTrainer(ctx, vereinID, mannschaftID, k.ID); err != nil {
+		return rl, err
 	}
 	rl.verwalter = rl.trainer
 	if !rl.trainer {
@@ -357,22 +363,27 @@ func (z *zugriff) rolle(ctx context.Context, vereinID string, k auth.Konto, mann
 
 // zumLogin schickt zur Anmeldung und danach zurück: bei GET auf die Seite, sonst auf
 // die Seite, von der das Formular kam.
-func zumLogin(w http.ResponseWriter, r *http.Request, g Regel) {
+func (z *zugriff) zumLogin(w http.ResponseWriter, r *http.Request, g Regel) {
 	if g.stufe == stufeKontoAPI {
 		http.Error(w, "Nicht angemeldet", http.StatusUnauthorized)
 		return
 	}
 	ziel := r.URL.Path
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		ziel = herkunft(r)
+		ziel = z.herkunft(r)
+		// Ohne Herkunft führt der Weg zurück in die Verwaltung, nicht auf die Startseite.
+		if ziel == "/" && (g.stufe == stufeAdmin || g.stufe == stufeVereinsadmin || g.stufe == stufeSuperadmin) {
+			ziel = "/admin"
+		}
 	}
 	umleiten(w, r, "/login?weiter="+url.QueryEscape(ziel))
 }
 
-// herkunft ist der Pfad des Referers im Verein der Anfrage, sonst "/".
-func herkunft(r *http.Request) string {
+// herkunft ist der Pfad des Referers im Verein der Anfrage, wenn er vom selben Origin
+// kommt, sonst "/".
+func (z *zugriff) herkunft(r *http.Request) string {
 	u, err := url.Parse(r.Referer())
-	if err != nil || !strings.EqualFold(u.Host, r.Host) {
+	if err != nil || u.Scheme != z.scheme || !strings.EqualFold(u.Host, r.Host) {
 		return "/"
 	}
 	pfad, ok := strings.CutPrefix(u.Path, basis(r))
