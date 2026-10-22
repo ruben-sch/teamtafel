@@ -18,17 +18,13 @@ type Kalender interface {
 }
 
 // kalenderErneuern erzeugt einen neuen Link und zeigt ihn einmalig an.
-func (e *einstellungen) kalenderErneuern(w http.ResponseWriter, r *http.Request) {
-	v, k, ok := angemeldet(w, r)
-	if !ok {
-		return
-	}
-	token, err := e.kalender.Erneuern(r.Context(), v.ID, k.ID)
+func (e *einstellungen) kalenderErneuern(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) {
+	token, err := e.kalender.Erneuern(r.Context(), z.Verein.ID, z.Konto.ID)
 	if err != nil {
 		interner(w, "kalender-link erneuern", err)
 		return
 	}
-	e.zeigen(w, r, token)
+	e.zeigen(w, r, z, token)
 }
 
 // kalenderFeed liefert die Termine des Kontos von vier Wochen zurück bis ein Jahr voraus.

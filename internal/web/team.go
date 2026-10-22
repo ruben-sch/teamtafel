@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,55 +42,14 @@ type Team interface {
 type teamSeiten struct {
 	team    Team
 	termine Termine
-	rollen  *rollen
 	scheme  string
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
-// angemeldet liefert Verein und Konto. Ohne Verein antwortet es mit 404,
-// ohne Login leitet es zur Anmeldung und danach zurück.
-func angemeldet(w http.ResponseWriter, r *http.Request) (verein.Verein, auth.Konto, bool) {
-	v, ok := vereinAus(r.Context())
-	if !ok {
-		http.NotFound(w, r)
-		return v, auth.Konto{}, false
-	}
-	k, ok := kontoAus(r.Context())
-	if !ok {
-		umleiten(w, r, "/login?weiter="+url.QueryEscape(r.URL.Path))
-		return v, k, false
-	}
-	return v, k, true
-}
-
 func interner(w http.ResponseWriter, was string, err error) {
 	slog.Error(was, "err", err)
 	http.Error(w, "Interner Fehler", http.StatusInternalServerError)
-}
-
-// trainerVon prüft, ob das Konto die Mannschaft trainiert, und antwortet sonst selbst.
-func (s *teamSeiten) trainerVon(w http.ResponseWriter, r *http.Request, mannschaftID string) (verein.Verein, auth.Konto, bool) {
-	v, k, ok := angemeldet(w, r)
-	if !ok {
-		return v, k, false
-	}
-	if !uuidPattern.MatchString(mannschaftID) {
-		http.NotFound(w, r)
-		return v, k, false
-	}
-	ist, err := s.team.IstTrainer(r.Context(), v.ID, mannschaftID, k.ID)
-	if err != nil {
-		interner(w, "trainer prüfen", err)
-		return v, k, false
-	}
-	if !ist {
-		renderStatus(w, r, http.StatusForbidden, "meldung.html", meldung{
-			Titel: "Kein Zugriff", Text: "Diese Seite sehen nur die Trainer der Mannschaft.", LinkZiel: "/", LinkText: "Zur Startseite",
-		})
-		return v, k, false
-	}
-	return v, k, true
 }
 
 type mannschaftSeite struct {
@@ -104,23 +62,11 @@ type mannschaftSeite struct {
 	Serien     []termin.Serie
 }
 
-func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	v, k, ok := s.verwalterVon(w, r, id)
-	if !ok {
-		return
-	}
+func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request, z Zugang[verein.Mannschaft]) {
 	ctx := r.Context()
-	m, err := s.team.Mannschaft(ctx, v.ID, id)
-	if err != nil {
-		interner(w, "mannschaft laden", err)
-		return
-	}
-	seite := mannschaftSeite{Titel: m.Name, Mannschaft: m}
-	if seite.IstTrainer, err = s.team.IstTrainer(ctx, v.ID, id, k.ID); err != nil {
-		interner(w, "trainer prüfen", err)
-		return
-	}
+	v, k, m, id := z.Verein, z.Konto, z.Objekt, z.Objekt.ID
+	seite := mannschaftSeite{Titel: m.Name, Mannschaft: m, IstTrainer: z.Trainer}
+	var err error
 	if seite.IstTrainer {
 		if seite.Anfragen, err = s.team.OffeneAnfragen(ctx, v.ID, id); err != nil {
 			interner(w, "anfragen laden", err)
@@ -149,18 +95,9 @@ func (s *teamSeiten) mannschaft(w http.ResponseWriter, r *http.Request) {
 	render(w, r, "mannschaft.html", seite)
 }
 
-func (s *teamSeiten) einladung(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	v, _, ok := s.verwalterVon(w, r, id)
-	if !ok {
-		return
-	}
-	m, err := s.team.Mannschaft(r.Context(), v.ID, id)
-	if err != nil {
-		interner(w, "mannschaft laden", err)
-		return
-	}
-	token, err := s.team.EinladungErneuern(r.Context(), v.ID, id)
+func (s *teamSeiten) einladung(w http.ResponseWriter, r *http.Request, z Zugang[verein.Mannschaft]) {
+	m := z.Objekt
+	token, err := s.team.EinladungErneuern(r.Context(), z.Verein.ID, m.ID)
 	if err != nil {
 		interner(w, "team-link erneuern", err)
 		return
@@ -186,36 +123,33 @@ type joinSeite struct {
 	Fehler     string
 }
 
-func (s *teamSeiten) joinMannschaft(w http.ResponseWriter, r *http.Request) (verein.Verein, auth.Konto, verein.Mannschaft, bool) {
-	v, k, ok := angemeldet(w, r)
-	if !ok {
-		return v, k, verein.Mannschaft{}, false
-	}
-	m, err := s.team.Einladung(r.Context(), v.ID, r.PathValue("token"))
+// joinMannschaft liefert die Mannschaft des Team-Links aus dem Pfad und antwortet sonst selbst.
+func (s *teamSeiten) joinMannschaft(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) (verein.Mannschaft, bool) {
+	m, err := s.team.Einladung(r.Context(), z.Verein.ID, r.PathValue("token"))
 	if errors.Is(err, team.ErrEinladungUngueltig) {
 		renderStatus(w, r, http.StatusNotFound, "meldung.html", meldung{
 			Titel: "Link ungültig", Text: "Der Team-Link ist nicht mehr gültig. Frag beim Trainer nach dem aktuellen Link.",
 			LinkZiel: "/", LinkText: "Zur Startseite",
 		})
-		return v, k, m, false
+		return m, false
 	}
 	if err != nil {
 		interner(w, "team-link prüfen", err)
-		return v, k, m, false
+		return m, false
 	}
-	return v, k, m, true
+	return m, true
 }
 
-func (s *teamSeiten) joinFormular(w http.ResponseWriter, r *http.Request) {
-	_, _, m, ok := s.joinMannschaft(w, r)
+func (s *teamSeiten) joinFormular(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) {
+	m, ok := s.joinMannschaft(w, r, z)
 	if !ok {
 		return
 	}
 	render(w, r, "join.html", joinSeite{Titel: m.Name, Mannschaft: m, Daten: team.AnfrageDaten{Art: team.ArtKind}})
 }
 
-func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
-	v, k, m, ok := s.joinMannschaft(w, r)
+func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request, z Zugang[Keins]) {
+	m, ok := s.joinMannschaft(w, r, z)
 	if !ok {
 		return
 	}
@@ -224,7 +158,7 @@ func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
 		Art: r.PostFormValue("art"), Vorname: r.PostFormValue("vorname"),
 		Nachname: r.PostFormValue("nachname"), Jahrgang: jahrgang,
 	}
-	a, err := s.team.AnfrageStellen(r.Context(), v.ID, m.ID, k.ID, d)
+	a, err := s.team.AnfrageStellen(r.Context(), z.Verein.ID, m.ID, z.Konto.ID, d)
 	if errors.Is(err, team.ErrUngueltigeAngaben) {
 		renderStatus(w, r, http.StatusBadRequest, "join.html", joinSeite{
 			Titel: m.Name, Mannschaft: m, Daten: d, Fehler: "Bitte Vorname, Nachname und Jahrgang angeben.",
@@ -242,33 +176,10 @@ func (s *teamSeiten) joinAnfragen(w http.ResponseWriter, r *http.Request) {
 	}{m.Name, m, a})
 }
 
-// anfrageEntscheiden prüft, ob das Konto die Mannschaft der Anfrage trainiert,
-// führt die Entscheidung aus und leitet zurück zur Mannschaft.
-func (s *teamSeiten) anfrageEntscheiden(entscheiden func(ctx context.Context, vereinID, anfrageID string, k auth.Konto, r *http.Request) error) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		v, _, ok := angemeldet(w, r)
-		if !ok {
-			return
-		}
-		id := r.PathValue("id")
-		if !uuidPattern.MatchString(id) {
-			http.NotFound(w, r)
-			return
-		}
-		mannschaftID, err := s.team.AnfrageMannschaft(r.Context(), v.ID, id)
-		if errors.Is(err, team.ErrAnfrageUnbekannt) {
-			http.NotFound(w, r)
-			return
-		}
-		if err != nil {
-			interner(w, "anfrage laden", err)
-			return
-		}
-		_, k, ok := s.trainerVon(w, r, mannschaftID)
-		if !ok {
-			return
-		}
-		err = entscheiden(r.Context(), v.ID, id, k, r)
+// anfrageEntscheiden führt die Entscheidung eines Trainers aus und leitet zurück zur Mannschaft.
+func (s *teamSeiten) anfrageEntscheiden(entscheiden func(ctx context.Context, vereinID, anfrageID string, k auth.Konto, r *http.Request) error) Handler[beitrittsanfrage] {
+	return func(w http.ResponseWriter, r *http.Request, z Zugang[beitrittsanfrage]) {
+		err := entscheiden(r.Context(), z.Verein.ID, z.Objekt.ID, z.Konto, r)
 		if errors.Is(err, team.ErrAnfrageUnbekannt) {
 			http.NotFound(w, r)
 			return
@@ -277,7 +188,7 @@ func (s *teamSeiten) anfrageEntscheiden(entscheiden func(ctx context.Context, ve
 			interner(w, "anfrage entscheiden", err)
 			return
 		}
-		umleiten(w, r, "/m/"+mannschaftID)
+		umleiten(w, r, "/m/"+z.MannschaftID)
 	}
 }
 
