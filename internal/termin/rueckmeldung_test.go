@@ -31,28 +31,52 @@ func mitKader(t *testing.T) *kader {
 	if err := ts.TrainerHinzufuegen(f.ctx, f.verein.ID, f.mannschaft.ID, k.trainer.ID); err != nil {
 		t.Fatal(err)
 	}
-	aufnehmen := func(konto auth.Konto, art, vorname string, jahrgang int) string {
-		a, err := ts.AnfrageStellen(f.ctx, f.verein.ID, f.mannschaft.ID, konto.ID,
-			team.AnfrageDaten{Art: art, Vorname: vorname, Nachname: "Test", Jahrgang: jahrgang})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := ts.Freigeben(f.ctx, f.verein.ID, a.ID, k.trainer.ID, false); err != nil {
-			t.Fatal(err)
-		}
-		sp, _ := ts.Kader(f.ctx, f.verein.ID, f.mannschaft.ID)
-		for _, s := range sp {
-			if s.Vorname == vorname {
-				return s.ID
-			}
-		}
-		t.Fatalf("%s nicht im kader", vorname)
-		return ""
-	}
-	k.kind = aufnehmen(k.eltern, team.ArtKind, "Kim", 2017)
-	k.erwachsen = aufnehmen(k.eltern, team.ArtKind, "Alex", 2000)
-	k.eigener = aufnehmen(k.selbst, team.ArtSelbst, "Sam", 1990)
+	k.kind = k.aufnehmen(t, k.eltern, team.ArtKind, "Kim", 2017)
+	k.erwachsen = k.aufnehmen(t, k.eltern, team.ArtKind, "Alex", 2000)
+	k.eigener = k.aufnehmen(t, k.selbst, team.ArtSelbst, "Sam", 1990)
 	return k
+}
+
+// aufnehmen nimmt einen neuen Spieler über eine freigegebene Beitrittsanfrage in den Kader auf.
+func (k *kader) aufnehmen(t *testing.T, konto auth.Konto, art, vorname string, jahrgang int) string {
+	t.Helper()
+	ts := team.NewStore(k.pool)
+	a, err := ts.AnfrageStellen(k.ctx, k.verein.ID, k.mannschaft.ID, konto.ID,
+		team.AnfrageDaten{Art: art, Vorname: vorname, Nachname: "Test", Jahrgang: jahrgang})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ts.Freigeben(k.ctx, k.verein.ID, a.ID, k.trainer.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	sp, _ := ts.Kader(k.ctx, k.verein.ID, k.mannschaft.ID)
+	for _, s := range sp {
+		if s.Vorname == vorname {
+			return s.ID
+		}
+	}
+	t.Fatalf("%s nicht im kader", vorname)
+	return ""
+}
+
+// eigenesKonto verknüpft den Spieler mit einem neuen eigenen Konto, wie bei einer
+// Beitrittsanfrage als Spieler selbst, die der Trainer als Treffer bestätigt.
+func (k *kader) eigenesKonto(t *testing.T, vorname string, jahrgang int) auth.Konto {
+	t.Helper()
+	konto, err := auth.NewStore(k.pool).KontoFuer(k.ctx, eindeutig("k")+"@example.org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := team.NewStore(k.pool)
+	a, err := ts.AnfrageStellen(k.ctx, k.verein.ID, k.mannschaft.ID, konto.ID,
+		team.AnfrageDaten{Art: team.ArtSelbst, Vorname: vorname, Nachname: "Test", Jahrgang: jahrgang})
+	if err != nil || a.TrefferSpielerID == "" {
+		t.Fatalf("anfrage %+v: %v", a, err)
+	}
+	if err := ts.Freigeben(k.ctx, k.verein.ID, a.ID, k.trainer.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	return konto
 }
 
 func status(t *testing.T, k *kader, terminID, spielerID string) termin.Rueckmeldung {
@@ -107,8 +131,8 @@ func TestWerDarfRueckmelden(t *testing.T) {
 		}
 	}
 	fall(k.eigener, k.selbst, false, nil)
-	// Vertretung gilt nur, solange der Spieler minderjährig ist.
-	fall(k.erwachsen, k.eltern, false, termin.ErrNichtBerechtigt)
+	// Vertretung gilt ohne Altersgrenze, solange der Spieler kein eigenes Konto hat.
+	fall(k.erwachsen, k.eltern, false, nil)
 	fall(k.kind, k.fremd, false, termin.ErrNichtBerechtigt)
 	fall(k.kind, k.selbst, false, termin.ErrNichtBerechtigt)
 	// Trainer dürfen für jeden im Kader.
@@ -119,6 +143,51 @@ func TestWerDarfRueckmelden(t *testing.T) {
 	}
 	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, k.kind, k.eltern.ID, "vielleicht", "", false); !errors.Is(err, termin.ErrUngueltig) {
 		t.Errorf("status vielleicht: %v", err)
+	}
+}
+
+func TestMitEigenemKontoAntwortetNurDerSpieler(t *testing.T) {
+	k := mitKader(t)
+	tm := k.einzel(t)
+	kim := k.eigenesKonto(t, "Kim", 2017)
+	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, k.kind, k.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNichtBerechtigt) {
+		t.Errorf("eltern nach eigenem konto: %v", err)
+	}
+	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, k.kind, kim.ID, termin.Zu, "", false); err != nil {
+		t.Errorf("kim selbst: %v", err)
+	}
+	m, err := k.store.MeineSpieler(k.ctx, k.verein.ID, k.eltern.ID, []string{tm.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m[tm.ID]; len(got) != 1 || got[0].SpielerID != k.erwachsen {
+		t.Errorf("eltern antworten nur noch für Alex: %+v", got)
+	}
+}
+
+func TestElternAntwortenImJahrDerVolljaehrigkeit(t *testing.T) {
+	k := mitKader(t)
+	tm := k.einzel(t)
+	mia := k.aufnehmen(t, k.eltern, team.ArtKind, "Mia", k.jetzt.Year()-18)
+	if err := k.store.Rueckmelden(k.ctx, k.verein.ID, tm.ID, mia, k.eltern.ID, termin.Zu, "", false); err != nil {
+		t.Errorf("mia wird dieses jahr 18: %v", err)
+	}
+}
+
+func TestKeinAntwortrechtAusAnderemVerein(t *testing.T) {
+	a, b := mitKader(t), mitKader(t)
+	tm := a.einzel(t)
+	// Eltern aus Verein B haben im Verein A keine Vertretung und damit kein Antwortrecht.
+	// Dass RLS Zeilen aus B in A verbirgt, prüft TestJedeVereinstabelleHatRLS; hier zählt das Ergebnis.
+	if err := a.store.Rueckmelden(a.ctx, a.verein.ID, tm.ID, a.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNichtBerechtigt) {
+		t.Errorf("eltern aus B für kind aus A: %v", err)
+	}
+	if m, err := a.store.MeineSpieler(a.ctx, a.verein.ID, b.eltern.ID, []string{tm.ID}); err != nil || len(m[tm.ID]) != 0 {
+		t.Errorf("eigene spieler aus B im termin von A: %+v %v", m, err)
+	}
+	// Im eigenen Verein B ist der Termin aus A unsichtbar, auch für ein Kind, für das sie antworten dürfen.
+	if err := b.store.Rueckmelden(b.ctx, b.verein.ID, tm.ID, b.kind, b.eltern.ID, termin.Zu, "", false); !errors.Is(err, termin.ErrNotFound) {
+		t.Errorf("termin aus A im verein B: %v", err)
 	}
 }
 
@@ -162,8 +231,9 @@ func TestMeineSpielerJeTermin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Nur das minderjährige Kind; für den Erwachsenen darf das Elternteil nicht antworten.
-	if got := m[tm.ID]; len(got) != 1 || got[0].SpielerID != k.kind || got[0].Status != termin.Zu || got[0].Vorname != "Kim" {
+	// Beide Kinder ohne eigenes Konto, auch das erwachsene; sortiert nach Vorname.
+	if got := m[tm.ID]; len(got) != 2 || got[0].SpielerID != k.erwachsen || got[1].SpielerID != k.kind ||
+		got[1].Status != termin.Zu || got[1].Vorname != "Kim" {
 		t.Fatalf("meine spieler = %+v", m)
 	}
 	if m, _ := k.store.MeineSpieler(k.ctx, k.verein.ID, k.trainer.ID, []string{tm.ID}); len(m[tm.ID]) != 0 {

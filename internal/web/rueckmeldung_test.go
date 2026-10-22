@@ -2,12 +2,14 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ruben-sch/teamtafel/internal/team"
 	"github.com/ruben-sch/teamtafel/internal/termin"
 )
 
@@ -102,5 +104,30 @@ func TestNachDerFristNurTrainer(t *testing.T) {
 	}
 	if rec := w.do(http.MethodPost, ziel, url.Values{"status": {"ab"}, "grund": {"urlaub"}}, w.trainer); rec.Code != http.StatusSeeOther {
 		t.Fatalf("trainer nach frist: %d", rec.Code)
+	}
+}
+
+func TestElternVonKindMitEigenemKontoSehenEsNichtUnterMeineSpieler(t *testing.T) {
+	w := neueTerminWelt(t)
+	ctx := context.Background()
+	ben := w.konto(fmt.Sprintf("b-%d@example.org", time.Now().UnixNano()))
+	a, err := w.team.AnfrageStellen(ctx, w.verein.ID, w.bambini.ID, ben.id,
+		team.AnfrageDaten{Art: team.ArtSelbst, Vorname: "Ben", Nachname: "Ball", Jahrgang: 2020})
+	if err != nil || a.TrefferSpielerID == "" {
+		t.Fatalf("anfrage %+v: %v", a, err)
+	}
+	if err := w.team.Freigeben(ctx, w.verein.ID, a.ID, w.trainerID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	body := w.do(http.MethodGet, "/", nil, w.eltern).Body.String()
+	if strings.Contains(body, "Meine Spieler") {
+		t.Errorf("eltern sehen Ben unter Meine Spieler: %s", body)
+	}
+	if !strings.Contains(body, ">Eltern von Ben<") {
+		t.Errorf("kopfzeile ohne Eltern von Ben: %s", body)
+	}
+	if body := w.do(http.MethodGet, "/", nil, ben.cookie).Body.String(); !strings.Contains(body, "Meine Spieler") {
+		t.Errorf("Ben sieht sich nicht unter Meine Spieler: %s", body)
 	}
 }

@@ -118,6 +118,8 @@ func TestEintragenNurImTeamUndBisZumBeginn(t *testing.T) {
 	if err := k.store.Austragen(k.ctx, k.verein.ID, tm.ID, d.ID, k.selbst.ID, k.selbst.ID); err != nil {
 		t.Fatal(err)
 	}
+	// Später eingetragen, also hinten; ohne Zeitabstand entschiede die Konto-ID.
+	k.jetzt = k.jetzt.Add(time.Minute)
 	if err := ein(k.trainer.ID); err != nil {
 		t.Fatal(err)
 	}
