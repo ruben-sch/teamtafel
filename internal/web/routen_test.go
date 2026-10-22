@@ -1,6 +1,7 @@
 package web
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -30,6 +31,43 @@ var oeffentlicheRouten = []string{
 	"GET /kalender/{datei}",
 }
 
+// geschuetzteRouten legt fest, welche Stufe jede Route verlangt. Wer eine Regel
+// lockert oder verschärft, ändert sie hier bewusst mit.
+var geschuetzteRouten = map[string]stufe{
+	"GET /einstellungen":                                      stufeKonto,
+	"POST /einstellungen/kalender":                            stufeAngemeldet,
+	"POST /push/abo":                                          stufeKontoAPI,
+	"DELETE /push/abo":                                        stufeKontoAPI,
+	"GET /join/{token}":                                       stufeAngemeldet,
+	"POST /join/{token}":                                      stufeAngemeldet,
+	"GET /m/{id}":                                             stufeVerwalter,
+	"POST /m/{id}/einladung":                                  stufeVerwalter,
+	"GET /m/{id}/termine/neu":                                 stufeVerwalter,
+	"POST /m/{id}/termine":                                    stufeVerwalter,
+	"POST /m/{id}/serien":                                     stufeVerwalter,
+	"POST /serien/{id}/beenden":                               stufeVerwalter,
+	"GET /m/{id}/statistik":                                   stufeTrainer,
+	"POST /anfragen/{id}/freigeben":                           stufeTrainer,
+	"POST /anfragen/{id}/ablehnen":                            stufeTrainer,
+	"GET /t/{id}":                                             stufeTeam,
+	"POST /t/{id}/rueckmeldung/{spieler}":                     stufeTeam,
+	"POST /t/{id}/dienste/{dienst}/eintragen":                 stufeTeam,
+	"POST /t/{id}/dienste/{dienst}/austragen":                 stufeTeam,
+	"POST /t/{id}":                                            stufeVerwalter,
+	"POST /t/{id}/absagen":                                    stufeVerwalter,
+	"POST /t/{id}/anwesenheit/{spieler}":                      stufeVerwalter,
+	"POST /t/{id}/dienste":                                    stufeVerwalter,
+	"POST /t/{id}/dienste/{dienst}":                           stufeVerwalter,
+	"POST /t/{id}/dienste/{dienst}/loeschen":                  stufeVerwalter,
+	"GET /admin":                                              stufeAdmin,
+	"POST /admin/vereine":                                     stufeSuperadmin,
+	"POST /admin/admins":                                      stufeVereinsadmin,
+	"POST /admin/farbe":                                       stufeVereinsadmin,
+	"POST /admin/mannschaften":                                stufeVereinsadmin,
+	"POST /admin/mannschaften/{id}/trainer":                   stufeVereinsadmin,
+	"POST /admin/mannschaften/{id}/trainer/{konto}/entfernen": stufeVereinsadmin,
+}
+
 func (w *zugriffWelt) optionen() Options {
 	return Options{
 		DB: fakePinger{}, Vereine: w.vereine, Auth: w.auth, Team: w.team, Termine: w.termine, Mailer: &fakeMailer{},
@@ -37,6 +75,21 @@ func (w *zugriffWelt) optionen() Options {
 		Superadmins: []string{w.superadmin},
 		BaseHost:    "teamtafel.example", Scheme: "https", Version: "test",
 	}
+}
+
+// berechtigt ist ein Konto, das die Stufe gerade erfüllt.
+func (w *zugriffWelt) berechtigt(s stufe) *http.Cookie {
+	switch s {
+	case stufeTeam:
+		return w.mitglied
+	case stufeVerwalter, stufeTrainer:
+		return w.trainer
+	case stufeAdmin, stufeVereinsadmin:
+		return w.adminA
+	case stufeSuperadmin:
+		return w.chef
+	}
+	return w.fremd
 }
 
 var platzhalter = regexp.MustCompile(`\{[a-z]+\}`)
@@ -66,6 +119,16 @@ func TestJedeRouteHatEineRegel(t *testing.T) {
 	erwartet := slices.Sorted(slices.Values(oeffentlicheRouten))
 	if !slices.Equal(offen, erwartet) {
 		t.Fatalf("öffentliche Routen = %v, want %v", offen, erwartet)
+	}
+
+	geschuetzt := map[string]stufe{}
+	for _, ro := range rt.routen {
+		if ro.grund == "" {
+			geschuetzt[ro.muster] = ro.regel.stufe
+		}
+	}
+	if !maps.Equal(geschuetzt, geschuetzteRouten) {
+		t.Fatalf("Regeln der Routen = %v, want %v", geschuetzt, geschuetzteRouten)
 	}
 
 	do := func(method, pfad string, c *http.Cookie) *httptest.ResponseRecorder {
@@ -105,12 +168,36 @@ func TestJedeRouteHatEineRegel(t *testing.T) {
 					t.Errorf("fremdes Konto: %d, want 403", rec.Code)
 				}
 			}
+			if ro.regel.stufe >= stufeVerwalter {
+				if rec := do(method, a, w.mitglied); rec.Code != http.StatusForbidden {
+					t.Errorf("Teammitglied: %d, want 403", rec.Code)
+				}
+			}
 			if ro.art != "" {
 				for name, c := range map[string]*http.Cookie{"admin von b": w.adminB, "superadmin": w.chef} {
 					if rec := do(method, b, c); rec.Code != http.StatusNotFound {
 						t.Errorf("%s mit ID aus a unter b: %d, want 404", name, rec.Code)
 					}
 				}
+			}
+		})
+	}
+	// Erst nach allen Ablehnungen, weil hier die Handler laufen und Daten ändern.
+	for _, ro := range rt.routen {
+		if ro.grund != "" {
+			continue
+		}
+		t.Run("berechtigt "+ro.muster, func(t *testing.T) {
+			method, p := w.pfad(ro)
+			a := "/" + w.a.Slug + p
+			if ro.regel.stufe == stufeSuperadmin {
+				a = p
+			}
+			// Wer die Regel erfüllt, kommt am Zugriffsmodul vorbei; was der Handler dann
+			// antwortet (400, 404 für unbekannte Dienste …), ist hier egal.
+			if rec := do(method, a, w.berechtigt(ro.regel.stufe)); rec.Code == http.StatusForbidden ||
+				strings.Contains(rec.Header().Get("Location"), "/login?") {
+				t.Errorf("berechtigtes Konto abgewiesen: %d %q", rec.Code, rec.Header().Get("Location"))
 			}
 		})
 	}
