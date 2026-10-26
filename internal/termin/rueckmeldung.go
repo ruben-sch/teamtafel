@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,10 +46,6 @@ type Rueckmeldung struct {
 	AnwesendKorrigiert bool
 }
 
-// darfAntworten: eigener Spieler oder vertretenes Kind, solange es minderjährig ist.
-const darfAntworten = `(sp.konto_id = $KONTO OR (sp.jahrgang + 18 > $JAHR AND EXISTS (
-	SELECT 1 FROM vertretung v WHERE v.spieler_id = sp.id AND v.konto_id = $KONTO)))`
-
 // Rueckmelden setzt Zu- oder Absage. Trainer (alsTrainer) dürfen für jeden im Kader
 // und auch nach der Frist; sonst gelten Vertretungsrecht und Frist.
 func (s *Store) Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, kontoID, status, grund string, alsTrainer bool) error {
@@ -67,10 +62,10 @@ func (s *Store) Rueckmelden(ctx context.Context, vereinID, terminID, spielerID, 
 		err := tx.QueryRow(ctx, `
 SELECT t.abgesagt, coalesce(t.frist, t.beginn), t.mannschaft_id::text, t.typ, t.titel, t.beginn,
 	EXISTS (SELECT 1 FROM kader k WHERE k.mannschaft_id = t.mannschaft_id AND k.spieler_id = $2),
-	EXISTS (SELECT 1 FROM spieler sp WHERE sp.id = $2 AND `+platzhalter(darfAntworten, "$3", "$4")+`),
+	antwortberechtigt($2, $3),
 	coalesce((SELECT vorname FROM spieler WHERE id = $2), ''),
 	coalesce((SELECT status FROM rueckmeldung r WHERE r.termin_id = t.id AND r.spieler_id = $2), '')
-FROM termin t WHERE t.id = $1`, terminID, spielerID, kontoID, jetzt.Year()).
+FROM termin t WHERE t.id = $1`, terminID, spielerID, kontoID).
 			Scan(&abgesagt, &ende, &mannschaftID, &d.Typ, &d.Titel, &d.Beginn, &imKader, &berechtigt, &vorname, &alt)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -173,8 +168,8 @@ FROM termin t
 JOIN kader k ON k.mannschaft_id = t.mannschaft_id
 JOIN spieler sp ON sp.id = k.spieler_id
 LEFT JOIN rueckmeldung r ON r.termin_id = t.id AND r.spieler_id = sp.id
-WHERE t.id = ANY($1::uuid[]) AND `+platzhalter(darfAntworten, "$2", "$3")+`
-ORDER BY sp.vorname`, terminIDs, kontoID, s.Now().Year())
+WHERE t.id = ANY($1::uuid[]) AND antwortberechtigt(sp.id, $2)
+ORDER BY sp.vorname`, terminIDs, kontoID)
 		if err != nil {
 			return err
 		}
@@ -191,11 +186,6 @@ ORDER BY sp.vorname`, terminIDs, kontoID, s.Now().Year())
 		return nil, fmt.Errorf("eigene spieler laden: %w", err)
 	}
 	return out, nil
-}
-
-// platzhalter setzt die Parameternummern für Konto und Jahr in darfAntworten ein.
-func platzhalter(sql, konto, jahr string) string {
-	return strings.NewReplacer("$KONTO", konto+"::uuid", "$JAHR", jahr+"::int").Replace(sql)
 }
 
 // GrundAufbewahrung: so lange nach Terminbeginn bleibt der Absagegrund gespeichert.

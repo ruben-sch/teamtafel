@@ -435,7 +435,7 @@ func plaetzeText(n int) string {
 // dienste ist Dienste innerhalb einer laufenden Transaktion, ohne Namen.
 func (s *Store) dienste(ctx context.Context, tx pgx.Tx, terminID string) ([]Dienst, error) {
 	rows, err := tx.Query(ctx, `
-SELECT d.id::text, d.bezeichnung, d.plaetze, coalesce(array_agg(e.konto_id::text) FILTER (WHERE e.konto_id IS NOT NULL), '{}')
+SELECT d.id::text, d.bezeichnung, d.plaetze, coalesce(array_agg(e.konto_id::text ORDER BY e.created_at, e.konto_id) FILTER (WHERE e.konto_id IS NOT NULL), '{}')
 FROM dienst d LEFT JOIN dienst_eintrag e ON e.dienst_id = d.id
 WHERE d.termin_id = $1
 GROUP BY d.id ORDER BY d.created_at, d.id`, terminID)

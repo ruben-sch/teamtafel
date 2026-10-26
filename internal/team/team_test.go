@@ -170,6 +170,34 @@ func TestSpielerMitEigenemKonto(t *testing.T) {
 	}
 }
 
+func TestElternBehaltenKindMitEigenemKontoOhneAntwortrecht(t *testing.T) {
+	f := setup(t)
+	a, _ := f.store.AnfrageStellen(f.ctx, f.verein.ID, f.bambini.ID, f.eltern.ID,
+		team.AnfrageDaten{Art: team.ArtKind, Vorname: "Lea", Nachname: "Lang", Jahrgang: 2000})
+	if err := f.store.Freigeben(f.ctx, f.verein.ID, a.ID, f.trainer.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	meine, _ := f.store.MeineSpieler(f.ctx, f.verein.ID, f.eltern.ID)
+	if len(meine) != 1 || !meine[0].Antwortberechtigt || meine[0].Selbst {
+		t.Fatalf("vor eigenem konto (ohne altersgrenze) = %+v", meine)
+	}
+
+	lea := konto(t, f.pool)
+	b, _ := f.store.AnfrageStellen(f.ctx, f.verein.ID, f.bambini.ID, lea.ID,
+		team.AnfrageDaten{Art: team.ArtSelbst, Vorname: "Lea", Nachname: "Lang", Jahrgang: 2000})
+	if err := f.store.Freigeben(f.ctx, f.verein.ID, b.ID, f.trainer.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	meine, _ = f.store.MeineSpieler(f.ctx, f.verein.ID, f.eltern.ID)
+	if len(meine) != 1 || meine[0].Antwortberechtigt || meine[0].Selbst {
+		t.Fatalf("eltern nach eigenem konto = %+v", meine)
+	}
+	selbst, _ := f.store.MeineSpieler(f.ctx, f.verein.ID, lea.ID)
+	if len(selbst) != 1 || !selbst[0].Antwortberechtigt || !selbst[0].Selbst {
+		t.Fatalf("lea selbst = %+v", selbst)
+	}
+}
+
 func TestAblehnenLoeschtAnfrage(t *testing.T) {
 	f := setup(t)
 	a, _ := f.store.AnfrageStellen(f.ctx, f.verein.ID, f.bambini.ID, f.eltern.ID,
