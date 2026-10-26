@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/ruben-sch/teamtafel/compare/v0.1.3...v0.1.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* Eltern sagen zu und ab, bis das Kind ein eigenes Konto hat ([#37](https://github.com/ruben-sch/teamtafel/issues/37)) ([723416f](https://github.com/ruben-sch/teamtafel/commit/723416fdb912487f668d710625fcd5c1c6862c9c))
+* Zugriff je Route im Zugriffsmodul, 404 statt 500 für fremde IDs ([#38](https://github.com/ruben-sch/teamtafel/issues/38)) ([bf4d2b4](https://github.com/ruben-sch/teamtafel/commit/bf4d2b455e2f1539eba14f534a48f76bdf85f00e))
+
 ## [0.1.3](https://github.com/ruben-sch/teamtafel/compare/v0.1.2...v0.1.3) (2026-10-21)
 
 
